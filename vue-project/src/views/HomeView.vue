@@ -48,6 +48,22 @@
               <img src="https://s.coze.cn/image/H5ri4Ya3YII/" alt="bg" class="w-full h-full object-cover" />
             </div>
             
+            <!-- 签筒动画 -->
+            <div v-if="isShaking" class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none bg-primary/90 backdrop-blur-sm">
+              <div class="relative w-32 h-64">
+                <!-- 签筒 -->
+                <div class="absolute bottom-0 w-full h-48 bg-gradient-to-r from-yellow-700 to-yellow-600 rounded-b-3xl border-4 border-yellow-800 shadow-2xl animate-shake-vertical origin-bottom z-10">
+                  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full border-2 border-yellow-500/30 flex items-center justify-center">
+                    <span class="text-2xl font-serif text-yellow-200 font-bold">道</span>
+                  </div>
+                </div>
+                <!-- 签子 -->
+                <div class="absolute top-10 left-1/2 transform -translate-x-1/2 w-4 h-48 bg-yellow-100 rounded-t-lg border border-yellow-300 shadow-md animate-bounce-stick origin-bottom z-0" style="animation-delay: 0.1s"></div>
+                <div class="absolute top-14 left-1/3 transform -translate-x-1/2 w-4 h-44 bg-yellow-100 rounded-t-lg border border-yellow-300 shadow-md animate-bounce-stick origin-bottom z-0" style="animation-delay: 0.3s; animation-duration: 0.7s"></div>
+                <div class="absolute top-8 left-2/3 transform -translate-x-1/2 w-4 h-46 bg-yellow-100 rounded-t-lg border border-yellow-300 shadow-md animate-bounce-stick origin-bottom z-0" style="animation-delay: 0s; animation-duration: 0.5s"></div>
+              </div>
+            </div>
+
             <!-- XP 动画 -->
             <transition name="fade-up">
               <div v-if="showXpAnimation" class="absolute top-10 right-10 text-yellow-300 font-bold text-2xl z-50 pointer-events-none drop-shadow-md">
@@ -60,14 +76,24 @@
               诚心祈愿，汲取今日智慧<br/>
               道法自然，指引前行方向
             </p>
-            <button 
-              @click="drawFortune" 
-              :disabled="hasDrawn || isShaking"
-              class="px-6 py-2 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-70 disabled:cursor-not-allowed relative z-10"
-              :class="{'animate-shake': isShaking}"
-            >
-              {{ hasDrawn ? '今日已签' : (isShaking ? '求签中...' : '抽取灵签') }}
-            </button>
+            <div class="flex flex-col gap-2 relative z-30">
+              <button 
+                @click="drawFortune" 
+                :disabled="hasDrawn || isShaking"
+                class="px-6 py-2 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-70 disabled:cursor-not-allowed relative z-10"
+                :class="{'animate-shake': isShaking}"
+              >
+                {{ hasDrawn ? '今日已签' : (isShaking ? '求签中...' : '抽取灵签') }}
+              </button>
+              
+              <button 
+                v-if="hasDrawn"
+                @click="resetFortune" 
+                class="text-xs text-white/50 hover:text-white underline relative z-10"
+              >
+                [测试用] 重置抽签
+              </button>
+            </div>
             
             <button 
               @click="showMoodRescue = true"
@@ -288,6 +314,13 @@ const drawFortune = () => {
   }, 1500) // Longer duration for effect
 }
 
+const resetFortune = () => {
+  localStorage.removeItem('dailyFortuneDate')
+  localStorage.removeItem('dailyFortuneIndex')
+  hasDrawn.value = false
+  currentFortune.value = null
+}
+
 onMounted(() => {
   // 检查今日是否已抽签
   const savedDate = localStorage.getItem('dailyFortuneDate')
@@ -352,5 +385,27 @@ onMounted(() => {
 
 .animate-shake {
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes shake-vertical {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg) translateY(2px) translateX(-2px); }
+  50% { transform: rotate(0deg) translateY(4px); }
+  75% { transform: rotate(8deg) translateY(2px) translateX(2px); }
+}
+
+@keyframes bounce-stick {
+  0% { transform: translate(-50%, 0) rotate(0deg); }
+  25% { transform: translate(-50%, -20px) rotate(-5deg); }
+  50% { transform: translate(-50%, 0) rotate(0deg); }
+  75% { transform: translate(-50%, -10px) rotate(3deg); }
+  100% { transform: translate(-50%, 0) rotate(0deg); }
+}
+
+.animate-shake-vertical {
+  animation: shake-vertical 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
+.animate-bounce-stick {
+  animation: bounce-stick 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
 }
 </style>
