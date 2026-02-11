@@ -62,8 +62,8 @@ const fragmentShader = `
   }
 
   // Fractal Brownian Motion
-  #define NUM_OCTAVES 5
-
+  // OCTAVES injected dynamically
+  
   float fbm( in vec2 _st) {
     float v = 0.0;
     float a = 0.5;
@@ -131,13 +131,18 @@ const initThree = () => {
 
   const width = window.innerWidth
   const height = window.innerHeight
+  
+  // Mobile optimization
+  const isMobile = width < 768
+  const pixelRatio = isMobile ? 1 : Math.min(window.devicePixelRatio, 2)
+  const octaves = isMobile ? 3 : 5
 
   scene = new THREE.Scene()
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
   
-  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !isMobile })
   renderer.setSize(width, height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(pixelRatio)
   container.value.appendChild(renderer.domElement)
 
   const geometry = new THREE.PlaneGeometry(2, 2)
@@ -151,6 +156,9 @@ const initThree = () => {
     targetColor.set('#a67c52')
   }
   
+  // Inject OCTAVES definition
+  const finalFragmentShader = `#define NUM_OCTAVES ${octaves}\n` + fragmentShader
+  
   material = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -159,7 +167,7 @@ const initThree = () => {
       uOpacity: { value: isZenMode.value ? 0.25 : 0.15 } // Lower opacity for subtlety
     },
     vertexShader,
-    fragmentShader,
+    fragmentShader: finalFragmentShader,
     transparent: true,
     depthWrite: false
   })

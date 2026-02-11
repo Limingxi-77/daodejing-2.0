@@ -62,10 +62,11 @@
             </p>
             <button 
               @click="drawFortune" 
-              :disabled="hasDrawn"
+              :disabled="hasDrawn || isShaking"
               class="px-6 py-2 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-70 disabled:cursor-not-allowed relative z-10"
+              :class="{'animate-shake': isShaking}"
             >
-              {{ hasDrawn ? '今日已签' : '抽取灵签' }}
+              {{ hasDrawn ? '今日已签' : (isShaking ? '求签中...' : '抽取灵签') }}
             </button>
             
             <button 
@@ -252,14 +253,31 @@ const fortunes: Fortune[] = [
 const showXpAnimation = ref(false)
 const showMoodRescue = ref(false)
 
+const isShaking = ref(false)
+
+const triggerHaptic = (pattern: number | number[] = 50) => {
+  if (navigator.vibrate) {
+    navigator.vibrate(pattern)
+  }
+}
+
 const drawFortune = () => {
-  if (hasDrawn.value) return
+  if (hasDrawn.value || isShaking.value) return
+  
+  // Start shaking
+  isShaking.value = true
+  triggerHaptic([50, 50, 50, 50, 50]) // Vibrate pattern
   
   // 模拟抽签动画效果
   setTimeout(() => {
+    isShaking.value = false
     const randomIndex = Math.floor(Math.random() * fortunes.length)
     currentFortune.value = fortunes[randomIndex]
     hasDrawn.value = true
+    
+    // Success haptic
+    triggerHaptic(100)
+    
     localStorage.setItem('dailyFortuneDate', new Date().toDateString())
     localStorage.setItem('dailyFortuneIndex', randomIndex.toString())
     
@@ -267,7 +285,7 @@ const drawFortune = () => {
     cultivationStore.addExp(50, '每日一签')
     showXpAnimation.value = true
     setTimeout(() => showXpAnimation.value = false, 2000)
-  }, 500)
+  }, 1500) // Longer duration for effect
 }
 
 onMounted(() => {
@@ -324,5 +342,15 @@ onMounted(() => {
 .fade-up-leave-to {
   opacity: 0;
   transform: translateY(-20px);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 </style>

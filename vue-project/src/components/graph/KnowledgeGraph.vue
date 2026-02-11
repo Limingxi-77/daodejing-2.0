@@ -4,13 +4,18 @@
     <div ref="graphContainer" class="w-full h-full"></div>
     
     <!-- 悬浮提示 -->
-    <div v-if="hoveredNode" 
-         class="absolute z-10 pointer-events-none bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg border-l-4 border-primary max-w-xs transition-all duration-200"
-         :style="{ left: tooltipPos.x + 'px', top: tooltipPos.y + 'px' }">
-      <h3 class="text-lg font-bold text-primary mb-1">{{ hoveredNode.id }}</h3>
-      <p class="text-sm text-gray-600 mb-2">{{ hoveredNode.desc }}</p>
+    <div v-if="hoveredNode || selectedNode" 
+         class="absolute z-10 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg border-l-4 border-primary max-w-xs transition-all duration-200"
+         :style="tooltipStyle">
+      <div class="flex justify-between items-start">
+        <h3 class="text-lg font-bold text-primary mb-1">{{ (selectedNode || hoveredNode).id }}</h3>
+        <button v-if="selectedNode" @click="selectedNode = null" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <p class="text-sm text-gray-600 mb-2">{{ (selectedNode || hoveredNode).desc }}</p>
       <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block">
-        <i class="fas fa-link mr-1"></i>关联章节: {{ hoveredNode.chapters.length }} 章
+        <i class="fas fa-link mr-1"></i>关联章节: {{ (selectedNode || hoveredNode).chapters.length }} 章
       </div>
     </div>
 
@@ -31,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import * as d3 from 'd3'
 
 // 类型定义
@@ -52,8 +57,27 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 // 状态
 const graphContainer = ref<HTMLElement | null>(null)
 const hoveredNode = ref<GraphNode | null>(null)
+const selectedNode = ref<GraphNode | null>(null)
 const tooltipPos = ref({ x: 0, y: 0 })
 const loading = ref(true)
+
+const tooltipStyle = computed(() => {
+  // If selected (mobile/click), center it or place it fixed
+  if (selectedNode.value) {
+    return {
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '90%',
+      top: 'auto'
+    }
+  }
+  // If hovered (desktop), follow mouse
+  return {
+    left: tooltipPos.value.x + 'px',
+    top: tooltipPos.value.y + 'px'
+  }
+})
 
 // D3 实例变量
 let simulation: d3.Simulation<GraphNode, GraphLink> | null = null
@@ -128,6 +152,11 @@ const initGraph = () => {
 
   // 主容器 Group
   g = svg.append('g')
+  
+  // Click on background to clear selection
+  svg.on('click', () => {
+    selectedNode.value = null
+  })
 
   // 力导向模拟
   simulation = d3.forceSimulation<GraphNode>(graphData.nodes)
@@ -162,6 +191,16 @@ const initGraph = () => {
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .style('transition', 'all 0.3s')
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => {
+      // Toggle selection on click (mobile friendly)
+      event.stopPropagation()
+      if (selectedNode.value?.id === d.id) {
+        selectedNode.value = null
+      } else {
+        selectedNode.value = d
+      }
+    })
     .on('mouseover', function(event, d) {
       d3.select(this).attr('stroke', '#d4b483').attr('stroke-width', 4)
       hoveredNode.value = d
