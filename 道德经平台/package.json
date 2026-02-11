@@ -1,0 +1,104 @@
+{
+  "name": "daodejing-ai-platform",
+  "version": "1.0.0",
+  "description": "道德经AI互动解读者平台 - 一个融合人工智能与传统文化的在线学习平台",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 8080 -c-1",
+    "dev": "http-server -p 8080 -c-1 -o",
+    "build": "npm run generate-pages && npm run minify-css && npm run minify-js",
+    "generate-pages": "node js/generate-pages.js",
+    "minify-css": "cleancss -o dist/css/main.min.css css/main.css && cleancss -o dist/css/auth-module.min.css css/auth-module.css && cleancss -o dist/css/components.min.css css/components.css",
+    "minify-js": "uglifyjs js/main.js -o dist/js/main.min.js && uglifyjs js/auth-module.js -o dist/js/auth-module.min.js && uglifyjs js/scroll-effects.js -o dist/js/scroll-effects.min.js && uglifyjs js/utils.js -o dist/js/utils.min.js",
+    "lint": "eslint js/*.js --fix",
+    "format": "prettier --write .",
+    "test": "jest",
+    "serve": "http-server -p 8080 -c-1 -o",
+    "deploy": "npm run build && gh-pages -d dist"
+  },
+  "keywords": [
+    "道德经",
+    "老子",
+    "道家",
+    "人工智能",
+    "中国传统文化",
+    "哲学",
+    "学习平台",
+    "在线教育"
+  ],
+  "author": {
+    "name": "道德经AI平台团队",
+    "email": "team@daodejing.ai",
+    "url": "https://daodejing.ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daodejing-ai/platform.git"
+  },
+  "bugs": {
+    "url": "https://github.com/daodejing-ai/platform/issues"
+  },
+  "homepage": "https://daodejing.ai",
+  "devDependencies": {
+    "clean-css-cli": "^5.6.2",
+    "eslint": "^8.45.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "gh-pages": "^5.0.0",
+    "http-server": "^14.1.1",
+    "jest": "^29.6.1",
+    "prettier": "^3.0.0",
+    "uglify-js": "^3.17.4"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "marked": "^5.1.1",
+    "prismjs": "^1.29.0"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "jest": {
+    "testEnvironment": "jsdom",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "js/**/*.js",
+      "!js/generate-pages.js"
+    ]
+  },
+  "eslintConfig": {
+    "extends": "standard",
+    "env": {
+      "browser": true,
+      "es2021": true,
+      "node": true,
+      "jest": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 12,
+      "sourceType": "module"
+    },
+    "rules": {
+      "no-console": "warn",
+      "no-unused-vars": "warn"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 80,
+    "tabWidth": 2
+  }
+}

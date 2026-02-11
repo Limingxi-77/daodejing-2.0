@@ -1,0 +1,56 @@
+/* 学习路径页面特定样式 */
+.path-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.path-card:hover {
+    transform: translateY(-5px);
+    border-left-color: var(--accent-color);
+}
+
+.progress-ring {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+    transition: stroke-dashoffset 0.35s;
+    stroke-dasharray: 339.292;
+    stroke-dashoffset: 0;
+}
+
+.lesson-item {
+    transition: all 0.3s ease;
+}
+
+.lesson-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.lesson-completed {
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+.lesson-current {
+    background-color: rgba(255, 152, 0, 0.1);
+    border-left: 4px solid var(--accent-color);
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 0.25rem;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.difficulty-easy { background-color: #4CAF50; }
+.difficulty-medium { background-color: #FF9800; }
+.difficulty-hard { background-color: #F44336; }
+
+/* 延迟加载的样式 - 在页面加载完成后应用 */
+.learning-path-styles {
+    display: block;
+}

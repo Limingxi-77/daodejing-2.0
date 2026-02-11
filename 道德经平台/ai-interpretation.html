@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI解读 - 道德经AI互动解读者</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/auth-module.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav id="mainNav" class="fixed w-full top-0 z-50 transition-all duration-300 py-4">
+        <div class="container mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-primary mr-2">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="text-xl font-semibold text-primary">道德经AI解读者</div>
+            </div>
+            
+            <!-- 桌面端导航 -->
+            <div class="nav-links hidden md:flex space-x-8">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors">首页</a>
+                <a href="ai-interpretation.html" class="text-accent font-semibold">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors">关于</a>
+            </div>
+            
+            <!-- 登录/注册按钮 -->
+            <div id="authButtonsDesktop" class="hidden md:flex space-x-4">
+                <button id="loginBtnNav" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                <button id="registerBtnNav" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+            </div>
+
+            <!-- 用户信息（登录后显示） -->
+            <div id="userProfileDesktop" class="hidden items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span id="userNameDesktop" class="text-primary font-semibold">用户</span>
+                </div>
+                <button id="logoutBtnDesktop" class="text-sm text-secondary hover:text-red-500 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-1"></i>退出
+                </button>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn md:hidden text-primary">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动端菜单 -->
+        <div id="mobileMenu" class="mobile-menu bg-light border-t border-secondary mt-4 hidden">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors py-2">首页</a>
+                <a href="ai-interpretation.html" class="text-accent font-semibold py-2">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors py-2">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors py-2">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors py-2">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors py-2">关于</a>
+                <div id="authButtonsMobile" class="flex space-x-4 pt-2">
+                    <button id="loginBtnMobile" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                    <button id="registerBtnMobile" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+                </div>
+                
+                <div id="userProfileMobile" class="hidden flex-col space-y-3 pt-2 border-t border-gray-200 mt-2">
+                    <div class="flex items-center space-x-3 px-2">
+                        <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+                            <i class="fas fa-user text-lg"></i>
+                        </div>
+                        <span id="userNameMobile" class="text-primary font-semibold">用户</span>
+                    </div>
+                    <button id="logoutBtnMobile" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 页面内容 -->
+    <main class="pt-32 pb-20 px-4 md:px-8">
+        <div class="container mx-auto">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-3xl md:text-4xl font-bold text-primary mb-6 text-center">
+                    AI解读道德经
+                </h1>
+                <p class="text-xl text-dark mb-10 text-center">
+                    与AI对话，深入理解《道德经》的智慧
+                </p>
+                
+                <!-- AI对话区域 -->
+                <div class="bamboo-scroll p-6 mb-8">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center mr-3">
+                            <i class="fas fa-robot text-xl"></i>
+                        </div>
+                        <div class="text-lg font-medium text-primary">道德经AI解读者</div>
+                    </div>
+                    
+                    <!-- 对话历史 -->
+                    <div class="chat-container mb-6 max-h-96 overflow-y-auto">
+                        <div class="chat-message ai">
+                            <div class="chat-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="chat-content">
+                                您好！我是道德经AI解读者，我可以帮您解读《道德经》的章节，解释其中的概念，或者与您探讨其中的哲理。请问您想了解哪方面的内容？
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 输入区域 -->
+                    <div class="relative">
+                        <input type="text" id="chatInput" placeholder="请输入您的问题..." 
+                            class="chat-input w-full px-5 py-4 rounded-full border-2 border-secondary focus:outline-none focus:border-accent transition-all text-lg" />
+                        <button id="sendBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors">
+                            <i class="fas fa-paper-plane text-lg"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- 快捷问题 -->
+                    <div class="flex flex-wrap justify-center mt-4 gap-2">
+                        <button class="quick-question px-3 py-1 bg-secondary/10 text-primary rounded-full text-sm hover:bg-secondary/20 transition-colors">
+                            解释第一章
+                        </button>
+                        <button class="quick-question px-3 py-1 bg-secondary/10 text-primary rounded-full text-sm hover:bg-secondary/20 transition-colors">
+                            什么是"道"
+                        </button>
+                        <button class="quick-question px-3 py-1 bg-secondary/10 text-primary rounded-full text-sm hover:bg-secondary/20 transition-colors">
+                            "无为而治"的含义
+                        </button>
+                        <button class="quick-question px-3 py-1 bg-secondary/10 text-primary rounded-full text-sm hover:bg-secondary/20 transition-colors">
+                            "上善若水"的解释
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 章节选择 -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold text-primary mb-4">选择章节</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第一章 论道
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第二章 美善
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第三章 无为
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第四章 冲虚
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第五章 守中
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第六章 谷神
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第七章 无私
+                        </button>
+                        <button class="chapter-select px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors">
+                            第八章 上善若水
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 热门问题 -->
+                <div>
+                    <h2 class="text-2xl font-semibold text-primary mb-4">热门问题</h2>
+                    <div class="space-y-4">
+                        <div class="bg-light p-4 rounded-lg border-l-4 border-accent">
+                            <h3 class="font-medium text-primary mb-2">如何理解"道可道，非常道"？</h3>
+                            <p class="text-dark">这句话的意思是：可以用言语描述的"道"，就不是永恒不变的"道"。老子认为真正的"道"是无法用言语完全表达的，它超越了语言的限制...</p>
+                            <button class="mt-2 text-accent hover:underline">查看完整解读 →</button>
+                        </div>
+                        
+                        <div class="bg-light p-4 rounded-lg border-l-4 border-accent">
+                            <h3 class="font-medium text-primary mb-2">什么是"无为而治"？</h3>
+                            <p class="text-dark">"无为而治"是老子政治思想的核心，不是指什么都不做，而是指顺应自然规律，不强行干预，让事物按照其本性发展...</p>
+                            <button class="mt-2 text-accent hover:underline">查看完整解读 →</button>
+                        </div>
+                        
+                        <div class="bg-light p-4 rounded-lg border-l-4 border-accent">
+                            <h3 class="font-medium text-primary mb-2">如何理解"上善若水"？</h3>
+                            <p class="text-dark">"上善若水"出自第八章，意思是最高境界的善行就像水一样。水滋养万物而不争功，处于众人厌恶的低洼之处，却最接近于"道"...</p>
+                            <button class="mt-2 text-accent hover:underline">查看完整解读 →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 登录注册模态框 -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content modal-fade">
+            <div class="auth-modal-header">
+                <h3 id="authTitle" class="text-xl font-semibold">登录</h3>
+                <button id="closeAuthModal" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="auth-modal-body">
+                <form id="authForm">
+                    <div class="mb-4">
+                        <label for="email" class="block text-sm font-medium text-dark mb-2">邮箱</label>
+                        <input type="email" id="email" name="email" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="emailError" class="error-message text-red-500">请输入有效的邮箱地址</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="block text-sm font-medium text-dark mb-2">密码</label>
+                        <input type="password" id="password" name="password" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="passwordError" class="error-message text-red-500">密码至少需要6个字符</div>
+                    </div>
+                    
+                    <div id="confirmPasswordDiv" class="mb-4 hidden">
+                        <label for="confirmPassword" class="block text-sm font-medium text-dark mb-2">确认密码</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword"
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="confirmPasswordError" class="error-message text-red-500">两次输入的密码不一致</div>
+                    </div>
+                    
+                    <div id="passwordStrengthDiv" class="mb-4 hidden">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm text-dark">密码强度</span>
+                            <span id="strengthText" class="text-sm text-dark">弱</span>
+                        </div>
+                        <div class="strength-bar">
+                            <div id="strengthFill" class="strength-fill bg-red-500" style="width: 25%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <button type="submit" id="authSubmitBtn" class="w-full py-2 px-4 btn-primary rounded-md flex justify-center items-center">
+                            <span id="authBtnText">登录</span>
+                            <div id="authLoadingSpinner" class="loading-spinner ml-2">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="auth-modal-footer">
+                <div class="text-center text-sm">
+                    <span id="authFooterText">还没有账号？</span>
+                    <a href="#" id="authToggleLink" class="text-accent hover:underline">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚区域 -->
+    <footer class="bg-dark text-white py-8">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="logo mr-2">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <span class="text-xl font-bold">道德经AI解读者</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        结合AI技术与传统文化，为您提供智能化的道德经学习体验
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weixin text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weibo text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">平台功能</h4>
+                    <ul class="space-y-2">
+                        <li><a href="ai-interpretation.html" class="text-gray-400 hover:text-white">AI解读</a></li>
+                        <li><a href="learning-path.html" class="text-gray-400 hover:text-white">学习路径</a></li>
+                        <li><a href="community.html" class="text-gray-400 hover:text-white">社区交流</a></li>
+                        <li><a href="resource-library.html" class="text-gray-400 hover:text-white">资源库</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">学习资源</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">道德经原文</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">注解版本</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">学习工具</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">研究论文</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400"><i class="fas fa-envelope mr-2"></i>contact@daodejing.ai</li>
+                        <li class="text-gray-400"><i class="fas fa-phone mr-2"></i>+86 123 4567 8900</li>
+                        <li class="text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i>北京市朝阳区</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2023 道德经AI互动解读者平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth-module.js"></script>
+    <script src="js/scroll-effects.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/ai-chat.js"></script>
+</body>
+</html>

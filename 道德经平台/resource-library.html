@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道德经资源库 - AI互动解读者平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/auth-module.css">
+    <style>
+        .resource-type-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .type-pdf { background-color: var(--primary); }
+        .type-video { background-color: var(--accent); }
+        .type-audio { background-color: var(--secondary); }
+        .type-book { background-color: #8B4513; }
+        .type-link { background-color: #2E8B57; }
+        
+        .resource-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        
+        .pdf { background-color: rgba(107, 72, 38, 0.1); color: var(--primary); }
+        .video { background-color: rgba(212, 175, 55, 0.1); color: var(--accent); }
+        .audio { background-color: rgba(166, 124, 82, 0.1); color: var(--secondary); }
+        .book { background-color: rgba(139, 69, 19, 0.1); color: #8B4513; }
+        .link { background-color: rgba(46, 139, 87, 0.1); color: #2E8B57; }
+        
+        .resource-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: 1px solid var(--secondary);
+        }
+        
+        .resource-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(107, 72, 38, 0.15);
+            border-color: var(--accent);
+        }
+        
+        .filter-section {
+            border-bottom: 1px solid var(--secondary);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .filter-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--secondary);
+            z-index: 40;
+        }
+        
+        .page-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--dark);
+        }
+        
+        .page-btn:hover:not(.active):not(.disabled) {
+            background-color: var(--light);
+        }
+        
+        .page-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .page-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .resource-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--secondary);
+        }
+        
+        .resource-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.875rem;
+            color: var(--dark);
+            opacity: 0.7;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, var(--light) 0%, var(--background) 100%);
+        }
+        
+        .search-input {
+            border: 1px solid var(--secondary);
+        }
+        
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 固定导航栏 -->
+    <nav id="mainNav" class="fixed w-full top-0 z-50 transition-all duration-300 py-4">
+        <div class="container mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-primary mr-2">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="text-xl font-semibold text-primary">道德经AI解读者</div>
+            </div>
+            
+            <!-- 桌面导航 -->
+            <div class="nav-links hidden md:flex space-x-8">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors">共创社区</a>
+                <a href="resource-library.html" class="text-accent font-semibold">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors">关于</a>
+            </div>
+            
+            <!-- 登录/注册按钮 -->
+            <div id="authButtonsDesktop" class="hidden md:flex space-x-4">
+                <button id="loginBtnNav" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                <button id="registerBtnNav" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+            </div>
+            
+            <!-- 用户信息（登录后显示） -->
+            <div id="userProfileDesktop" class="hidden items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span id="userNameDesktop" class="text-primary font-semibold">用户</span>
+                </div>
+                <button id="logoutBtnDesktop" class="text-sm text-secondary hover:text-red-500 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-1"></i>退出
+                </button>
+            </div>
+            
+            <!-- 移动菜单按钮 -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn md:hidden text-primary">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动菜单 -->
+        <div id="mobileMenu" class="mobile-menu bg-light border-t border-secondary mt-4 hidden">
+            <div class="container mx-auto px-4 py-4">
+                <div class="space-y-4">
+                    <a href="index.html" class="block text-primary hover:text-accent transition-colors">首页</a>
+                    <a href="ai-interpretation.html" class="block text-primary hover:text-accent transition-colors">AI解读</a>
+                    <a href="learning-path.html" class="block text-primary hover:text-accent transition-colors">学习路径</a>
+                    <a href="community.html" class="block text-primary hover:text-accent transition-colors">共创社区</a>
+                    <a href="resource-library.html" class="block text-accent font-semibold">资源库</a>
+                    <a href="about.html" class="block text-primary hover:text-accent transition-colors">关于</a>
+                </div>
+                <div id="authButtonsMobile" class="mt-6 pt-6 border-t border-secondary">
+                    <button id="loginBtnMobile" class="w-full px-4 py-2 btn-secondary rounded-md mb-2">登录</button>
+                    <button id="registerBtnMobile" class="w-full px-4 py-2 btn-primary rounded-md">注册</button>
+                </div>
+
+                <div id="userProfileMobile" class="hidden flex-col space-y-3 pt-6 border-t border-secondary mt-6">
+                    <div class="flex items-center space-x-3 px-2">
+                        <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+                            <i class="fas fa-user text-lg"></i>
+                        </div>
+                        <span id="userNameMobile" class="text-primary font-semibold">用户</span>
+                    </div>
+                    <button id="logoutBtnMobile" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 导航栏占位符 -->
+    <div class="h-24"></div>
+
+    <!-- Hero 部分 -->
+    <section class="hero-section py-16">
+        <div class="container mx-auto px-4 md:px-8 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-primary mb-4">
+                <i class="fas fa-book-open mr-3"></i>道德经资源库
+            </h1>
+            <p class="text-lg text-dark max-w-3xl mx-auto mb-8">
+                探索丰富的道德经学习资源，包括经典解读、现代分析、音频视频等多种形式，助您深入理解道家智慧
+            </p>
+            <div class="search-box max-w-2xl mx-auto">
+                <div class="relative">
+                    <input type="text" id="heroSearchInput" placeholder="搜索资源..." class="w-full px-6 py-4 rounded-full border border-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent">
+                    <button id="heroSearchBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-accent text-white px-6 py-2 rounded-full hover:bg-opacity-90 transition-colors">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 主要内容区域 -->
+    <main class="container mx-auto px-4 md:px-8 py-12">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- 侧边栏过滤器 -->
+            <aside class="lg:w-1/4 bg-white p-6 rounded-lg shadow-sm border border-secondary h-fit">
+                <h2 class="text-xl font-bold mb-6 text-primary">筛选资源</h2>
+                
+                <!-- 搜索框 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">搜索资源</label>
+                    <input type="text" class="search-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="输入关键词...">
+                </div>
+                
+                <!-- 资源类型过滤 -->
+                <div class="filter-section">
+                    <h3 class="font-semibold mb-3 text-gray-800">资源类型</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="pdf" data-filter="type">
+                            <span class="text-gray-700">PDF文档</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="video" data-filter="type">
+                            <span class="text-gray-700">视频</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="audio" data-filter="type">
+                            <span class="text-gray-700">音频</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="book" data-filter="type">
+                            <span class="text-gray-700">图书</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="link" data-filter="type">
+                            <span class="text-gray-700">链接</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 时代过滤 -->
+                <div class="filter-section">
+                    <h3 class="font-semibold mb-3 text-gray-800">时代</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="春秋战国" data-filter="era">
+                            <span class="text-gray-700">春秋战国</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="魏晋南北朝" data-filter="era">
+                            <span class="text-gray-700">魏晋南北朝</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="唐宋" data-filter="era">
+                            <span class="text-gray-700">唐宋</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="明清" data-filter="era">
+                            <span class="text-gray-700">明清</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="现代" data-filter="era">
+                            <span class="text-gray-700">现代</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 评论者过滤 -->
+                <div class="filter-section">
+                    <h3 class="font-semibold mb-3 text-gray-800">评论者</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="王弼" data-filter="commentator">
+                            <span class="text-gray-700">王弼</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="河上公" data-filter="commentator">
+                            <span class="text-gray-700">河上公</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="朱熹" data-filter="commentator">
+                            <span class="text-gray-700">朱熹</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="王阳明" data-filter="commentator">
+                            <span class="text-gray-700">王阳明</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="filter-checkbox mr-2" value="南怀瑾" data-filter="commentator">
+                            <span class="text-gray-700">南怀瑾</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button id="applyFilters" class="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-secondary transition">
+                    应用筛选
+                </button>
+            </aside>
+
+            <!-- 主内容区域 -->
+            <div class="lg:w-3/4">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-dark">道德经资源库</h2>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-gray-600">排序:</span>
+                        <select class="sort-dropdown border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="newest">最新发布</option>
+                            <option value="downloads">下载量</option>
+                            <option value="bookmarks">收藏数</option>
+                            <option value="rating">评分</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 资源卡片网格 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="resourcesContainer">
+                    <!-- 资源卡片1 - PDF -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="魏晋南北朝" data-commentator="王弼">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">《道德经》王弼注本</h3>
+                        <p class="text-gray-600 mb-4">魏晋时期王弼对《道德经》的经典注解，被誉为"老子注之王"，对后世影响深远。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,234</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片2 - 视频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="南怀瑾">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">南怀瑾讲道德经</h3>
+                        <p class="text-gray-600 mb-4">南怀瑾先生对道德经的深入解读，结合人生智慧与实践应用。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,456</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片3 - 音频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="曾仕强">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">曾仕强道德经音频讲解</h3>
+                        <p class="text-gray-600 mb-4">曾仕强教授的道德经音频课程，深入浅出地讲解道德经智慧。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,876</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片4 - 图书 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="唐宋" data-commentator="朱熹">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">朱熹《道德经集注》</h3>
+                        <p class="text-gray-600 mb-4">宋代朱熹对道德经的集注，融合儒家思想的深度解读。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>987</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片5 - 链接 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="冯友兰">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">冯友兰《中国哲学史》中的道德经解读</h3>
+                        <p class="text-gray-600 mb-4">著名哲学家冯友兰对道德经在哲学史中的地位和影响的分析。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,543</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.5</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片6 - PDF -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="春秋战国" data-commentator="河上公">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">河上公《道德经注》</h3>
+                        <p class="text-gray-600 mb-4">汉代河上公对道德经的注解，是早期道教对道德经的重要阐释。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,123</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.4</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片7 - 视频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="傅佩荣">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">傅佩荣详解道德经</h3>
+                        <p class="text-gray-600 mb-4">台湾大学傅佩荣教授对道德经的详细讲解，结合中西哲学比较。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,034</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片8 - 音频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="徐梵澄">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">徐梵澄道德经心解</h3>
+                        <p class="text-gray-600 mb-4">现代学者徐梵澄对道德经的心灵层面解读，融合东西方思想。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,654</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片9 - 图书 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="明清" data-commentator="王夫之">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">王夫之《老子衍》</h3>
+                        <p class="text-gray-600 mb-4">明末清初王夫之对道德经的阐释，结合时代背景的深刻分析。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>876</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.5</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片10 - 链接 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="陈鼓应">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">陈鼓应道德经今注今译</h3>
+                        <p class="text-gray-600 mb-4">著名学者陈鼓应对道德经的现代注译，学术价值极高。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,345</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片11 - PDF -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="现代" data-commentator="李零">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">李零《道德经古本疏证》</h3>
+                        <p class="text-gray-600 mb-4">北京大学李零教授对道德经古本的考证和疏证，学术研究价值高。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,456</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片12 - 视频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="楼宇烈">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">楼宇烈教授讲道德经</h3>
+                        <p class="text-gray-600 mb-4">北京大学楼宇烈教授对道德经的深度解读，结合传统文化。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,789</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片13 - 音频 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="叶海烟">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">叶海烟道德经现代解读</h3>
+                        <p class="text-gray-600 mb-4">台湾学者叶海烟对道德经的现代化解读，结合当代思潮。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,234</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片14 - 图书 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="王德有">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">王德有《道德经新译》</h3>
+                        <p class="text-gray-600 mb-4">中国社科院王德有研究员对道德经的新翻译和阐释。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>987</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.5</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片15 - 链接 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="张松辉">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">张松辉道德经研究专题</h3>
+                        <p class="text-gray-600 mb-4">湖南大学张松辉教授对道德经的研究专题，包含多篇学术论文。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,345</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片16 - PDF - 严复《老子道德经评注》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="现代" data-commentator="严复">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">严复《老子道德经评注》</h3>
+                        <p class="text-gray-600 mb-4">近代思想家严复对道德经的评注，结合西方哲学思想的独特解读。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,234</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片17 - 视频 - 钱穆道德经讲座 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="钱穆">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">钱穆道德经专题讲座</h3>
+                        <p class="text-gray-600 mb-4">国学大师钱穆对道德经的专题讲座，从历史角度深入分析。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,567</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片18 - 音频 - 林语堂道德经解读 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="林语堂">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">林语堂道德经英文解读</h3>
+                        <p class="text-gray-600 mb-4">林语堂对道德经的英文解读音频，面向国际读者的独特视角。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,089</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.5</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片19 - 图书 - 胡适《中国哲学史大纲》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="胡适">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">胡适《中国哲学史大纲》道德经部分</h3>
+                        <p class="text-gray-600 mb-4">胡适对道德经在中国哲学史中地位的经典论述。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>876</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.4</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片20 - 链接 - 道德经国际研究数据库 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="国际研究">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经国际研究数据库</h3>
+                        <p class="text-gray-600 mb-4">全球道德经研究文献数据库，包含多语言研究成果。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,345</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片21 - PDF - 成玄英《道德经义疏》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="唐宋" data-commentator="成玄英">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">成玄英《道德经义疏》</h3>
+                        <p class="text-gray-600 mb-4">唐代道士成玄英对道德经的义疏，融合道教思想的深度阐释。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,078</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片22 - 视频 - 牟宗三道德经哲学讲座 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="牟宗三">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">牟宗三道德经哲学讲座</h3>
+                        <p class="text-gray-600 mb-4">新儒家代表人物牟宗三对道德经哲学体系的深度分析。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,432</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片23 - 音频 - 道德经诵读全集 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="春秋战国" data-commentator="老子">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经全文诵读（古音版）</h3>
+                        <p class="text-gray-600 mb-4">道德经全文古音诵读，还原春秋战国时期的语言韵律。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>3,456</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片24 - 图书 - 陈鼓应《老子注译及评介》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="陈鼓应">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">陈鼓应《老子注译及评介》</h3>
+                        <p class="text-gray-600 mb-4">陈鼓应教授对道德经的权威注译和学术评介，现代研究经典。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,134</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片25 - 链接 - 道德经数字图书馆 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="数字资源">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经数字图书馆</h3>
+                        <p class="text-gray-600 mb-4">汇集历代道德经版本的数字图书馆，支持全文检索。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>3,789</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片26 - PDF - 郭店楚简《老子》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="春秋战国" data-commentator="老子">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">郭店楚简《老子》甲本</h3>
+                        <p class="text-gray-600 mb-4">1993年出土的郭店楚简老子甲本，现存最早的道德经版本。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,567</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片27 - 视频 - 汤一介道德经讲座 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="汤一介">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">汤一介道德经哲学讲座</h3>
+                        <p class="text-gray-600 mb-4">北京大学汤一介教授对道德经哲学体系的系统讲解。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,890</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片28 - 音频 - 道德经智慧应用系列 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="翟鸿燊">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">翟鸿燊道德经智慧应用</h3>
+                        <p class="text-gray-600 mb-4">翟鸿燊教授将道德经智慧应用于现代生活和管理的音频课程。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,345</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片29 - 图书 - 任继愈《老子新译》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="任继愈">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">任继愈《老子新译》</h3>
+                        <p class="text-gray-600 mb-4">著名哲学家任继愈对道德经的新译和注释，学术价值极高。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,567</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片30 - 链接 - 道德经在线研究平台 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="学术研究">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经在线研究平台</h3>
+                        <p class="text-gray-600 mb-4">提供道德经研究工具和学术资源的在线平台。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>4,123</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片31 - PDF - 马王堆帛书《老子》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="春秋战国" data-commentator="老子">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">马王堆帛书《老子》甲乙本</h3>
+                        <p class="text-gray-600 mb-4">1973年出土的马王堆帛书老子甲乙本，汉代抄本的重要发现。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,890</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片32 - 视频 - 刘笑敢道德经研究 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="刘笑敢">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">刘笑敢道德经文本研究</h3>
+                        <p class="text-gray-600 mb-4">香港中文大学刘笑敢教授对道德经文本的深度研究讲座。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,456</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片33 - 音频 - 道德经与企业管理 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="曾仕强">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经智慧与企业管理</h3>
+                        <p class="text-gray-600 mb-4">曾仕强教授讲解如何将道德经智慧应用于现代企业管理。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,678</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片34 - 图书 - 张岱年《中国哲学大纲》 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="张岱年">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">张岱年《中国哲学大纲》道德经部分</h3>
+                        <p class="text-gray-600 mb-4">张岱年先生对道德经在中国哲学体系中地位的经典论述。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,234</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片35 - 链接 - 道德经多语言译本库 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="国际翻译">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经多语言译本数据库</h3>
+                        <p class="text-gray-600 mb-4">汇集道德经英、法、德、日等多语言译本的在线数据库。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>3,456</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片36 - PDF - 道德经与中医养生 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="pdf" data-era="现代" data-commentator="中医养生">
+                        <span class="resource-type-badge type-pdf">PDF</span>
+                        <div class="resource-icon pdf">
+                            <i class="fas fa-file-pdf text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经与中医养生智慧</h3>
+                        <p class="text-gray-600 mb-4">探讨道德经养生思想与中医理论的结合，提供健康生活指导。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,123</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片37 - 视频 - 道德经与领导力 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="video" data-era="现代" data-commentator="领导力">
+                        <span class="resource-type-badge type-video">视频</span>
+                        <div class="resource-icon video">
+                            <i class="fas fa-video text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经领导力智慧讲座</h3>
+                        <p class="text-gray-600 mb-4">从道德经角度探讨现代领导力，无为而治的管理智慧。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,890</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片38 - 音频 - 道德经与家庭教育 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="audio" data-era="现代" data-commentator="家庭教育">
+                        <span class="resource-type-badge type-audio">音频</span>
+                        <div class="resource-icon audio">
+                            <i class="fas fa-music text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经家庭教育智慧</h3>
+                        <p class="text-gray-600 mb-4">将道德经智慧应用于现代家庭教育，培养孩子自然成长。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,567</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.6</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片39 - 图书 - 道德经与心理学 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="book" data-era="现代" data-commentator="心理学">
+                        <span class="resource-type-badge type-book">图书</span>
+                        <div class="resource-icon book">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经心理学解读</h3>
+                        <p class="text-gray-600 mb-4">从心理学角度解读道德经，探讨道家思想对心理健康的启示。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>1,234</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 资源卡片40 - 链接 - 道德经在线学习社区 -->
+                    <div class="resource-card bg-white rounded-lg shadow-md p-6 relative" data-type="link" data-era="现代" data-commentator="学习社区">
+                        <span class="resource-type-badge type-link">链接</span>
+                        <div class="resource-icon link">
+                            <i class="fas fa-link text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">道德经在线学习社区</h3>
+                        <p class="text-gray-600 mb-4">道德经爱好者交流平台，分享学习心得和研究成果。</p>
+                        <div class="resource-meta">
+                            <div class="resource-meta-item">
+                                <i class="fas fa-download"></i>
+                                <span>2,890</span>
+                            </div>
+                            <div class="resource-meta-item">
+                                <i class="fas fa-star"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分页控件 -->
+                <div class="pagination" id="paginationContainer">
+                    <button class="page-btn prev-btn" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <!-- 页码按钮将通过JavaScript动态生成 -->
+                    <button class="page-btn next-btn">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white py-8 mt-12">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="logo mr-2">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <span class="text-xl font-bold">道德经AI解读者</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        结合AI技术与传统文化，为您提供智能化的道德经学习体验
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weixin text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weibo text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">平台功能</h4>
+                    <ul class="space-y-2">
+                        <li><a href="ai-interpretation.html" class="text-gray-400 hover:text-white">AI解读</a></li>
+                        <li><a href="learning-path.html" class="text-gray-400 hover:text-white">学习路径</a></li>
+                        <li><a href="community.html" class="text-gray-400 hover:text-white">社区交流</a></li>
+                        <li><a href="resource-library.html" class="text-gray-400 hover:text-white">资源库</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">学习资源</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">道德经原文</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">注解版本</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">学习工具</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">研究论文</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400"><i class="fas fa-envelope mr-2"></i>contact@daodejing.ai</li>
+                        <li class="text-gray-400"><i class="fas fa-phone mr-2"></i>+86 123 4567 8900</li>
+                        <li class="text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i>北京市朝阳区</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2023 道德经AI互动解读者平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth-module.js"></script>
+    <script>
+        // 导航栏响应式功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const mainNav = document.getElementById('mainNav');
+            
+            // 移动菜单切换
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                    mobileMenuBtn.innerHTML = mobileMenu.classList.contains('hidden') ? 
+                        '<i class="fas fa-bars text-xl"></i>' : 
+                        '<i class="fas fa-times text-xl"></i>';
+                });
+            }
+            
+            // 导航栏滚动效果
+            if (mainNav) {
+                let lastScrollTop = 0;
+                window.addEventListener('scroll', function() {
+                    let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    
+                    if (scrollTop > lastScrollTop && scrollTop > 100) {
+                        // 向下滚动
+                        mainNav.style.transform = 'translateY(-100%)';
+                    } else {
+                        // 向上滚动
+                        mainNav.style.transform = 'translateY(0)';
+                    }
+                    
+                    lastScrollTop = scrollTop;
+                });
+            }
+            
+            // 登录按钮事件
+            const loginBtns = document.querySelectorAll('#loginBtnNav, #mobileLoginBtn');
+            loginBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 这里可以添加登录模态框的显示逻辑
+                    console.log('登录按钮被点击');
+                });
+            });
+            
+            // 注册按钮事件
+            const registerBtns = document.querySelectorAll('#registerBtnNav, #mobileRegisterBtn');
+            registerBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 这里可以添加注册模态框的显示逻辑
+                    console.log('注册按钮被点击');
+                });
+            });
+        });
+        
+        class ResourceLibrary {
+            constructor() {
+                this.currentPage = 1;
+                this.itemsPerPage = 6; // 每页显示6个项目
+                this.allResources = document.querySelectorAll('.resource-card');
+                this.pageButtons = document.querySelectorAll('.page-btn');
+                this.prevButton = document.querySelector('.prev-btn');
+                this.nextButton = document.querySelector('.next-btn');
+                this.sidebarSearchInput = document.querySelector('.search-input'); // 侧边栏搜索框
+                this.heroSearchInput = document.getElementById('heroSearchInput'); // 顶部搜索框
+                this.heroSearchBtn = document.getElementById('heroSearchBtn'); // 顶部搜索按钮
+                this.sortDropdown = document.querySelector('.sort-dropdown');
+                this.applyFiltersBtn = document.getElementById('applyFilters');
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.showPage(1);
+            }
+            
+            setupEventListeners() {
+                // 分页按钮事件
+                this.prevButton.addEventListener('click', () => {
+                    if (this.currentPage > 1) {
+                        this.showPage(this.currentPage - 1);
+                    }
+                });
+                
+                this.nextButton.addEventListener('click', () => {
+                    const visibleResources = this.getVisibleResources();
+                    const totalPages = Math.ceil(visibleResources.length / this.itemsPerPage);
+                    if (this.currentPage < totalPages) {
+                        this.showPage(this.currentPage + 1);
+                    }
+                });
+                
+                // 筛选按钮事件
+                this.applyFiltersBtn.addEventListener('click', () => {
+                    this.applyFilters();
+                    this.showPage(1); // 重置到第一页
+                });
+                
+                // 侧边栏搜索事件
+                this.sidebarSearchInput.addEventListener('input', () => {
+                    this.applyFilters();
+                    this.showPage(1); // 重置到第一页
+                });
+                
+                // 顶部搜索框事件
+                this.heroSearchInput.addEventListener('input', () => {
+                    this.applyFilters();
+                    this.showPage(1); // 重置到第一页
+                });
+                
+                // 顶部搜索按钮事件
+                this.heroSearchBtn.addEventListener('click', () => {
+                    this.applyFilters();
+                    this.showPage(1); // 重置到第一页
+                });
+                
+                // 顶部搜索框回车事件
+                this.heroSearchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.applyFilters();
+                        this.showPage(1); // 重置到第一页
+                    }
+                });
+                
+                // 排序事件
+                this.sortDropdown.addEventListener('change', () => {
+                    this.applyFilters();
+                    this.showPage(1); // 重置到第一页
+                });
+            }
+            
+            getVisibleResources() {
+                // 获取所有可见的资源（经过筛选和搜索后的结果）
+                const heroSearchTerm = this.heroSearchInput.value.toLowerCase().trim();
+                const sidebarSearchTerm = this.sidebarSearchInput.value.toLowerCase().trim();
+                const selectedTypes = Array.from(document.querySelectorAll('.filter-checkbox[data-filter="type"]:checked')).map(cb => cb.value);
+                const selectedEras = Array.from(document.querySelectorAll('.filter-checkbox[data-filter="era"]:checked')).map(cb => cb.value);
+                const selectedCommentators = Array.from(document.querySelectorAll('.filter-checkbox[data-filter="commentator"]:checked')).map(cb => cb.value);
+                
+                return Array.from(this.allResources).filter(resource => {
+                    const type = resource.getAttribute('data-type');
+                    const era = resource.getAttribute('data-era');
+                    const commentator = resource.getAttribute('data-commentator');
+                    const title = resource.querySelector('h3').textContent.toLowerCase();
+                    const description = resource.querySelector('p').textContent.toLowerCase();
+                    
+                    // 检查类型筛选
+                    if (selectedTypes.length > 0 && !selectedTypes.includes(type)) {
+                        return false;
+                    }
+                    
+                    // 检查时代筛选
+                    if (selectedEras.length > 0 && !selectedEras.includes(era)) {
+                        return false;
+                    }
+                    
+                    // 检查评论者筛选
+                    if (selectedCommentators.length > 0 && !selectedCommentators.includes(commentator)) {
+                        return false;
+                    }
+                    
+                    // 检查顶部搜索框条件
+                    if (heroSearchTerm && !title.includes(heroSearchTerm) && !description.includes(heroSearchTerm)) {
+                        return false;
+                    }
+                    
+                    // 检查侧边栏搜索框条件
+                    if (sidebarSearchTerm && !title.includes(sidebarSearchTerm) && !description.includes(sidebarSearchTerm)) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+            
+            showPage(page) {
+                const visibleResources = this.getVisibleResources();
+                const totalPages = Math.ceil(visibleResources.length / this.itemsPerPage);
+                
+                // 隐藏所有资源
+                this.allResources.forEach(resource => {
+                    resource.style.display = 'none';
+                });
+                
+                // 计算当前页的资源索引范围
+                const startIndex = (page - 1) * this.itemsPerPage;
+                const endIndex = startIndex + this.itemsPerPage;
+                
+                // 显示当前页的资源
+                for (let i = startIndex; i < endIndex && i < visibleResources.length; i++) {
+                    visibleResources[i].style.display = 'block';
+                }
+                
+                // 更新分页控件
+                this.currentPage = page;
+                this.updatePagination(totalPages);
+            }
+            
+            updatePagination(totalPages) {
+                // 清空现有的页码按钮和省略号（除了上一页和下一页按钮）
+                const container = document.getElementById('paginationContainer');
+                const children = Array.from(container.children);
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    if (child !== this.prevButton && child !== this.nextButton) {
+                        container.removeChild(child);
+                    }
+                }
+                
+                // 重新添加上一页和下一页按钮到正确位置
+                container.appendChild(this.prevButton);
+                
+                // 更新上一页和下一页按钮状态
+                this.prevButton.disabled = this.currentPage === 1;
+                this.nextButton.disabled = this.currentPage === totalPages || totalPages === 0;
+                
+                // 创建新的页码按钮
+                this.updatePageButtons(totalPages);
+                
+                // 添加下一页按钮到最后
+                container.appendChild(this.nextButton);
+            }
+            
+            updatePageButtons(totalPages) {
+                const container = document.getElementById('paginationContainer');
+                
+                // 确定要显示的页码范围（最多显示5个页码按钮，当前页居中）
+                let startPage, endPage;
+                if (totalPages <= 5) {
+                    startPage = 1;
+                    endPage = totalPages;
+                } else {
+                    const maxVisiblePages = 5;
+                    const half = Math.floor(maxVisiblePages / 2);
+                    
+                    if (this.currentPage <= half) {
+                        startPage = 1;
+                        endPage = maxVisiblePages;
+                    } else if (this.currentPage + half >= totalPages) {
+                        startPage = totalPages - maxVisiblePages + 1;
+                        endPage = totalPages;
+                    } else {
+                        startPage = this.currentPage - half;
+                        endPage = this.currentPage + half;
+                    }
+                }
+                
+                // 创建页码按钮
+                for (let i = startPage; i <= endPage; i++) {
+                    const button = this.createPageButton(i);
+                    container.insertBefore(button, this.nextButton);
+                }
+                
+                // 添加省略号（如果需要）
+                if (startPage > 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'px-2 text-gray-500';
+                    ellipsis.textContent = '...';
+                    container.insertBefore(ellipsis, container.children[1]);
+                }
+                
+                if (endPage < totalPages) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'px-2 text-gray-500';
+                    ellipsis.textContent = '...';
+                    container.insertBefore(ellipsis, this.nextButton);
+                }
+            }
+            
+            createPageButton(pageNum) {
+                const button = document.createElement('button');
+                button.className = `page-btn ${pageNum === this.currentPage ? 'active' : ''}`;
+                button.textContent = pageNum;
+                
+                button.addEventListener('click', () => {
+                    this.showPage(pageNum);
+                });
+                
+                return button;
+            }
+            
+            applyFilters() {
+                // 应用筛选条件，但不改变页面，只更新资源可见性
+                const visibleResources = this.getVisibleResources();
+                
+                // 隐藏所有资源
+                this.allResources.forEach(resource => {
+                    resource.style.display = 'none';
+                });
+                
+                // 应用排序
+                this.sortResources(this.sortDropdown.value);
+                
+                // 显示符合条件的资源
+                visibleResources.forEach(resource => {
+                    resource.style.display = 'block';
+                });
+            }
+            
+            sortResources(criteria) {
+                // 根据不同标准对资源进行排序
+                const visibleResources = this.getVisibleResources();
+                
+                switch(criteria) {
+                    case 'newest':
+                        // 按添加顺序排序（默认顺序）
+                        break;
+                    case 'downloads':
+                        // 按下载量排序
+                        visibleResources.sort((a, b) => {
+                            const aDownloads = parseInt(a.querySelector('.resource-meta-item:first-child span').textContent.replace(/,/g, ''));
+                            const bDownloads = parseInt(b.querySelector('.resource-meta-item:first-child span').textContent.replace(/,/g, ''));
+                            return bDownloads - aDownloads;
+                        });
+                        break;
+                    case 'bookmarks':
+                        // 按收藏数排序
+                        visibleResources.sort((a, b) => {
+                            const aBookmarks = parseInt(a.querySelector('.resource-meta-item:nth-child(2) span').textContent.replace(/,/g, ''));
+                            const bBookmarks = parseInt(b.querySelector('.resource-meta-item:nth-child(2) span').textContent.replace(/,/g, ''));
+                            return bBookmarks - aBookmarks;
+                        });
+                        break;
+                    case 'rating':
+                        // 按评分排序
+                        visibleResources.sort((a, b) => {
+                            const aRating = parseFloat(a.querySelector('.resource-meta-item:last-child span').textContent);
+                            const bRating = parseFloat(b.querySelector('.resource-meta-item:last-child span').textContent);
+                            return bRating - aRating;
+                        });
+                        break;
+                }
+                
+                // 重新排列DOM元素
+                const container = document.getElementById('resourcesContainer');
+                visibleResources.forEach(resource => {
+                    container.appendChild(resource);
+                });
+            }
+        }
+        
+        // 页面加载完成后初始化资源库
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化导航栏
+            if (typeof initNavbar === 'function') {
+                initNavbar();
+            }
+            
+            // 初始化认证模块
+            if (typeof initAuthModule === 'function') {
+                initAuthModule();
+            }
+
+            new ResourceLibrary();
+        });
+    </script>
+</body>
+</html>

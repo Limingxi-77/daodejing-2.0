@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道德经AI互动解读者 - 探索老子智慧的现代旅程</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.5.0/mermaid.min.js"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/auth-module.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav id="mainNav" class="fixed w-full top-0 z-50 transition-all duration-300 py-4">
+        <div class="container mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-primary mr-2">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="text-xl font-semibold text-primary">道德经AI解读者</div>
+            </div>
+            
+            <!-- 桌面端导航 -->
+            <div class="nav-links hidden md:flex space-x-8">
+                <a href="index.html" class="text-accent font-semibold">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors">关于</a>
+            </div>
+            
+            <!-- 登录/注册按钮 -->
+            <div id="authButtonsDesktop" class="hidden md:flex space-x-4">
+                <button id="loginBtnNav" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                <button id="registerBtnNav" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+            </div>
+
+            <!-- 用户信息（登录后显示） -->
+            <div id="userProfileDesktop" class="hidden items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span id="userNameDesktop" class="text-primary font-semibold">用户</span>
+                </div>
+                <button id="logoutBtnDesktop" class="text-sm text-secondary hover:text-red-500 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-1"></i>退出
+                </button>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn md:hidden text-primary">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动端菜单 -->
+        <div id="mobileMenu" class="mobile-menu bg-light border-t border-secondary mt-4 hidden">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="index.html" class="text-accent font-semibold py-2">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors py-2">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors py-2">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors py-2">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors py-2">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors py-2">关于</a>
+                <div id="authButtonsMobile" class="flex space-x-4 pt-2">
+                    <button id="loginBtnMobile" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                    <button id="registerBtnMobile" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+                </div>
+                
+                <div id="userProfileMobile" class="hidden flex-col space-y-3 pt-2 border-t border-gray-200 mt-2">
+                    <div class="flex items-center space-x-3 px-2">
+                        <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+                            <i class="fas fa-user text-lg"></i>
+                        </div>
+                        <span id="userNameMobile" class="text-primary font-semibold">用户</span>
+                    </div>
+                    <button id="logoutBtnMobile" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero区域 -->
+    <header class="pt-32 pb-20 px-4 md:px-8 relative overflow-hidden ink-decoration">
+        <!-- 水墨装饰背景 -->
+        <div class="absolute top-0 right-0 w-1/3 h-full opacity-10">
+            <img src="https://s.coze.cn/image/H5ri4Ya3YII/" alt="太极图" class="w-full h-full object-cover">
+        </div>
+        <div class="absolute bottom-0 left-0 w-1/3 h-full opacity-10">
+            <img src="https://s.coze.cn/image/DLT84Yi4R1A/" alt="竹简" class="w-full h-full object-cover">
+        </div>
+        <div class="hero-content">
+            <div class="hero-text-container md:w-1/2 mb-10 md:mb-0">
+                <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-primary leading-tight mb-6">
+                    以AI智慧，探索老子思想的现代价值
+                </h1>
+                <p class="text-lg text-secondary mb-8 max-w-lg">
+                    智能解读、个性化学习、内容共创，开启与道德经的深度对话之旅
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                    <a href="ai-interpretation.html" class="btn-primary px-8 py-3 rounded text-center hover-float">
+                        开始探索
+                    </a>
+                    <a href="#" class="btn-secondary px-8 py-3 rounded text-center hover-float">
+                        了解更多
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区域 -->
+    <main class="min-h-screen bg-light py-16">
+        <!-- 功能特色 -->
+        <section class="container mx-auto px-4 md:px-8 mb-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-primary mb-4">平台特色功能</h2>
+                <p class="text-lg text-secondary max-w-3xl mx-auto">
+                    结合AI技术与传统文化，为您提供全方位的道德经学习体验
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- AI智能解读 -->
+                <div class="feature-card bg-white rounded-lg shadow-md p-6 hover-float">
+                    <div class="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-4 mx-auto">
+                        <i class="fas fa-robot text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-dark mb-3 text-center">AI智能解读</h3>
+                    <p class="text-secondary text-center">
+                        基于大语言模型的智能解读，深度解析道德经每一章的哲学内涵
+                    </p>
+                </div>
+                
+                <!-- 个性化学习路径 -->
+                <div class="feature-card bg-white rounded-lg shadow-md p-6 hover-float">
+                    <div class="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-4 mx-auto">
+                        <i class="fas fa-route text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-dark mb-3 text-center">个性化学习路径</h3>
+                    <p class="text-secondary text-center">
+                        根据您的学习目标和进度，定制专属的道德经学习路线
+                    </p>
+                </div>
+                
+                <!-- 互动社区 -->
+                <div class="feature-card bg-white rounded-lg shadow-md p-6 hover-float">
+                    <div class="w-16 h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-4 mx-auto">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-dark mb-3 text-center">互动社区</h3>
+                    <p class="text-secondary text-center">
+                        与志同道合的学习者交流心得，共同探讨道德经的智慧
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 学习统计 -->
+        <section class="container mx-auto px-4 md:px-8 mb-16">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-primary mb-2">5000+</div>
+                        <div class="text-secondary">活跃用户</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-primary mb-2">10000+</div>
+                        <div class="text-secondary">解读内容</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-primary mb-2">81</div>
+                        <div class="text-secondary">完整章节</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-primary mb-2">24/7</div>
+                        <div class="text-secondary">AI服务</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 最新动态 -->
+        <section class="container mx-auto px-4 md:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-primary mb-4">最新动态</h2>
+                <p class="text-lg text-secondary max-w-3xl mx-auto">
+                    了解平台最新功能和社区活动
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-dark mb-3">新增章节解读</h3>
+                    <p class="text-secondary mb-4">
+                        道德经第25章"有物混成"的AI深度解读已上线，包含哲学分析和现代应用
+                    </p>
+                    <div class="text-sm text-gray-500">2024年12月20日</div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-dark mb-3">社区活动预告</h3>
+                    <p class="text-secondary mb-4">
+                        本周六将举办线上道德经读书会，欢迎各位学习者参与讨论
+                    </p>
+                    <div class="text-sm text-gray-500">2024年12月22日</div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="modal-fade bg-light rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
+            <!-- 模态框头部 -->
+            <div class="bg-primary text-light p-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold">账号登录</h2>
+                <button class="closeModal text-light hover:text-accent transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="p-6">
+                <!-- 登录表单 -->
+                <form id="loginForm" class="space-y-5">
+                    <div>
+                        <label for="loginEmail" class="block text-sm font-medium text-dark mb-1">邮箱</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-secondary"></i>
+                            </div>
+                            <input type="email" id="loginEmail" name="email" class="w-full pl-10 pr-3 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入邮箱" required>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="loginPassword" class="block text-sm font-medium text-dark mb-1">密码</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-secondary"></i>
+                            </div>
+                            <input type="password" id="loginPassword" name="password" class="w-full pl-10 pr-10 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入密码" required>
+                            <button type="button" class="togglePassword absolute inset-y-0 right-0 pr-3 flex items-center text-secondary hover:text-primary">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input id="rememberMe" name="remember" type="checkbox" class="h-4 w-4 text-accent focus:ring-accent border-secondary rounded">
+                            <label for="rememberMe" class="ml-2 block text-sm text-dark">记住我</label>
+                        </div>
+                        <div class="text-sm">
+                            <a href="#" id="forgotPassword" class="font-medium text-primary hover:text-accent transition-colors">忘记密码?</a>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" id="loginSubmit" class="w-full bg-primary hover:bg-opacity-90 text-light font-semibold py-3 px-4 rounded-md transition-colors flex items-center justify-center">
+                            <span>登录</span>
+                            <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- 分隔线 -->
+                <div class="relative my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-secondary border-opacity-30"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-light text-secondary">或使用以下方式登录</span>
+                    </div>
+                </div>
+                
+                <!-- 社交媒体登录 -->
+                <div class="grid grid-cols-3 gap-4">
+                    <button class="ink-splash float-up flex items-center justify-center p-3 border border-gray-300 rounded-md hover:bg-green-50 transition-colors">
+                        <i class="fab fa-weixin text-green-600 text-xl"></i>
+                    </button>
+                    <button class="ink-splash float-up flex items-center justify-center p-3 border border-gray-300 rounded-md hover:bg-blue-50 transition-colors">
+                        <i class="fab fa-qq text-blue-500 text-xl"></i>
+                    </button>
+                    <button class="ink-splash float-up flex items-center justify-center p-3 border border-gray-300 rounded-md hover:bg-red-50 transition-colors">
+                        <i class="fab fa-weibo text-red-500 text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 模态框底部 -->
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <p class="text-center text-sm text-dark">
+                    还没有账号? <a href="#" id="switchToRegister" class="font-medium text-primary hover:text-accent transition-colors">立即注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册模态框 -->
+    <div id="registerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="modal-fade bg-light rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
+            <!-- 模态框头部 -->
+            <div class="bg-primary text-light p-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold">账号注册</h2>
+                <button class="closeModal text-light hover:text-accent transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="p-6">
+                <!-- 注册表单 -->
+                <form id="registerForm" class="space-y-5">
+                    <div>
+                        <label for="registerName" class="block text-sm font-medium text-dark mb-1">用户名</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-user text-secondary"></i>
+                            </div>
+                            <input type="text" id="registerName" name="name" class="w-full pl-10 pr-3 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入用户名" required>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="registerEmail" class="block text-sm font-medium text-dark mb-1">邮箱</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-secondary"></i>
+                            </div>
+                            <input type="email" id="registerEmail" name="email" class="w-full pl-10 pr-3 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入邮箱" required>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="registerPassword" class="block text-sm font-medium text-dark mb-1">密码</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-secondary"></i>
+                            </div>
+                            <input type="password" id="registerPassword" name="password" class="w-full pl-10 pr-10 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入密码（至少8位）" required>
+                            <button type="button" class="togglePassword absolute inset-y-0 right-0 pr-3 flex items-center text-secondary hover:text-primary">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                        </div>
+                        <!-- 密码强度指示器 -->
+                        <div class="mt-1">
+                            <div class="flex justify-between text-xs text-secondary mb-1">
+                                <span>密码强度</span>
+                                <span id="passwordStrength">弱</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                <div id="strengthBar" class="bg-red-500 h-1.5 rounded-full transition-all" style="width: 25%"></div>
+                            </div>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="registerConfirmPassword" class="block text-sm font-medium text-dark mb-1">确认密码</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-secondary"></i>
+                            </div>
+                            <input type="password" id="registerConfirmPassword" name="confirmPassword" class="w-full pl-10 pr-10 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请确认密码" required>
+                            <button type="button" class="togglePassword absolute inset-y-0 right-0 pr-3 flex items-center text-secondary hover:text-primary">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" id="registerSubmit" class="w-full bg-primary hover:bg-opacity-90 text-light font-semibold py-3 px-4 rounded-md transition-colors flex items-center justify-center">
+                            <span>注册</span>
+                            <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 模态框底部 -->
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <p class="text-center text-sm text-dark">
+                    已有账号? <a href="#" id="switchToLogin" class="font-medium text-primary hover:text-accent transition-colors">立即登录</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 忘记密码模态框 -->
+    <div id="forgotPasswordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="modal-fade bg-light rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
+            <!-- 模态框头部 -->
+            <div class="bg-primary text-light p-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold">忘记密码</h2>
+                <button class="closeModal text-light hover:text-accent transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="p-6">
+                <p class="text-sm text-dark mb-5">请输入您的邮箱，我们将发送重置密码的链接到您的邮箱</p>
+                
+                <!-- 忘记密码表单 -->
+                <form id="forgotPasswordForm" class="space-y-5">
+                    <div>
+                        <label for="forgotEmail" class="block text-sm font-medium text-dark mb-1">邮箱</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-secondary"></i>
+                            </div>
+                            <input type="email" id="forgotEmail" name="email" class="w-full pl-10 pr-3 py-3 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="请输入邮箱" required>
+                        </div>
+                        <p class="error-message text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" id="forgotSubmit" class="w-full bg-primary hover:bg-opacity-90 text-light font-semibold py-3 px-4 rounded-md transition-colors flex items-center justify-center">
+                            <span>发送重置链接</span>
+                            <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚区域 -->
+    <footer class="bg-dark text-white py-8">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="logo mr-2">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <span class="text-xl font-bold">道德经AI解读者</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        结合AI技术与传统文化，为您提供智能化的道德经学习体验
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weixin text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weibo text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">平台功能</h4>
+                    <ul class="space-y-2">
+                        <li><a href="ai-interpretation.html" class="text-gray-400 hover:text-white">AI解读</a></li>
+                        <li><a href="learning-path.html" class="text-gray-400 hover:text-white">学习路径</a></li>
+                        <li><a href="community.html" class="text-gray-400 hover:text-white">社区交流</a></li>
+                        <li><a href="resource-library.html" class="text-gray-400 hover:text-white">资源库</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">学习资源</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">道德经原文</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">注解版本</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">学习工具</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">研究论文</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400"><i class="fas fa-envelope mr-2"></i>contact@daodejing.ai</li>
+                        <li class="text-gray-400"><i class="fas fa-phone mr-2"></i>+86 123 4567 8900</li>
+                        <li class="text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i>北京市朝阳区</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2023 道德经AI互动解读者平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/auth-module.js"></script>
+    <script src="js/scroll-effects.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        // 初始化认证模块
+        document.addEventListener('DOMContentLoaded', function() {
+            initAuthModule();
+        });
+    </script>
+</body>
+</html>

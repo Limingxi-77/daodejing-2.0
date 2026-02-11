@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关于我们 - 道德经AI互动解读者平台</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/auth-module.css">
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <style>
+        /* 关于页面特定样式 */
+        .team-card {
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .team-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .team-avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 1rem;
+            border: 4px solid var(--primary-color);
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 2px;
+            background-color: var(--primary-color);
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 2rem;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2.4rem;
+            top: 0.5rem;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: 2px solid white;
+        }
+        
+        .timeline-date {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .timeline-content {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 2rem 1rem;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 1.1rem;
+            color: #374151;
+        }
+        
+        .partner-logo {
+            height: 80px;
+            object-fit: contain;
+            filter: grayscale(100%);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+        
+        .partner-logo:hover {
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .contact-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1.5rem;
+            color: var(--primary-color);
+        }
+        
+        .faq-item {
+            margin-bottom: 1.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .faq-question {
+            padding: 1rem 1.5rem;
+            background-color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+        
+        .faq-question:hover {
+            background-color: #f9fafb;
+        }
+        
+        .faq-answer {
+            padding: 0 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        
+        .faq-item.active .faq-answer {
+            padding: 1rem 1.5rem;
+            max-height: 500px;
+        }
+        
+        .faq-item.active .faq-question i {
+            transform: rotate(180deg);
+        }
+        
+        .faq-question i {
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- 导航栏 -->
+    <nav id="mainNav" class="fixed w-full top-0 z-50 transition-all duration-300 py-4">
+        <div class="container mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-primary mr-2">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="text-xl font-semibold text-primary">道德经AI解读者</div>
+            </div>
+            
+            <!-- 桌面端导航 -->
+            <div class="nav-links hidden md:flex space-x-8">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors">资源库</a>
+                <a href="about.html" class="text-accent font-semibold">关于</a>
+            </div>
+            
+            <!-- 登录/注册按钮 -->
+            <div id="authButtonsDesktop" class="hidden md:flex space-x-4">
+                <button id="loginBtnNav" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                <button id="registerBtnNav" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+            </div>
+            
+            <!-- 用户信息（登录后显示） -->
+            <div id="userProfileDesktop" class="hidden items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span id="userNameDesktop" class="text-primary font-semibold">用户</span>
+                </div>
+                <button id="logoutBtnDesktop" class="text-sm text-secondary hover:text-red-500 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-1"></i>退出
+                </button>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn md:hidden text-primary">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动端菜单 -->
+        <div id="mobileMenu" class="mobile-menu bg-light border-t border-secondary mt-4 hidden">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors py-2">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors py-2">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors py-2">学习路径</a>
+                <a href="community.html" class="text-primary hover:text-accent transition-colors py-2">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors py-2">资源库</a>
+                <a href="about.html" class="text-accent font-semibold py-2">关于</a>
+                <div id="authButtonsMobile" class="flex space-x-4 pt-2">
+                    <button id="loginBtnMobile" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                    <button id="registerBtnMobile" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+                </div>
+                
+                <div id="userProfileMobile" class="hidden flex-col space-y-3 pt-2 border-t border-gray-200 mt-2">
+                    <div class="flex items-center space-x-3 px-2">
+                        <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+                            <i class="fas fa-user text-lg"></i>
+                        </div>
+                        <span id="userNameMobile" class="text-primary font-semibold">用户</span>
+                    </div>
+                    <button id="logoutBtnMobile" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="pt-24">
+        <!-- 页面标题 -->
+        <section class="bg-primary text-white py-16">
+            <div class="container mx-auto text-center">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4">关于我们</h1>
+                <p class="text-xl max-w-3xl mx-auto">
+                    致力于以AI技术传承和弘扬《道德经》智慧，让古老哲学在现代社会焕发新生
+                </p>
+            </div>
+        </section>
+
+        <!-- 使命与愿景 -->
+        <section class="py-16">
+            <div class="container mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div>
+                        <h2 class="text-3xl font-bold text-primary mb-6">我们的使命</h2>
+                        <p class="text-lg text-dark mb-6">
+                            我们致力于利用人工智能技术，让《道德经》这一中华哲学瑰宝在数字时代焕发新的生命力。通过智能解读、个性化学习和互动交流，帮助更多人理解和应用老子思想，提升个人修养和社会和谐。
+                        </p>
+                        <p class="text-lg text-dark">
+                            我们相信，《道德经》中蕴含的智慧对于解决当代社会面临的挑战具有重要价值，我们的使命是搭建一座连接古代智慧与现代生活的桥梁。
+                        </p>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-primary mb-6">我们的愿景</h2>
+                        <p class="text-lg text-dark mb-6">
+                            成为全球领先的《道德经》数字化学习平台，让不同文化背景、不同知识水平的人都能便捷地接触、理解和应用《道德经》智慧。
+                        </p>
+                        <p class="text-lg text-dark">
+                            我们希望通过技术创新和内容共创，构建一个充满活力的《道德经》学习社区，推动中华优秀传统文化的创造性转化和创新性发展。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 平台数据 -->
+        <section class="py-16 bg-white">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">平台数据</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    <div class="stat-card">
+                        <div class="stat-number">10,000+</div>
+                        <div class="stat-label">注册用户</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">81</div>
+                        <div class="stat-label">完整章节</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">500+</div>
+                        <div class="stat-label">学习资源</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">98%</div>
+                        <div class="stat-label">用户满意度</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 发展历程 -->
+        <section class="py-16">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">发展历程</h2>
+                <div class="max-w-3xl mx-auto">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-date">2021年3月</div>
+                            <div class="timeline-content">
+                                <h3 class="text-xl font-bold text-dark mb-2">项目启动</h3>
+                                <p class="text-gray-600">由一群热爱传统文化的技术人员和学者共同发起，开始探索AI技术在传统文化传承中的应用。</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2021年9月</div>
+                            <div class="timeline-content">
+                                <h3 class="text-xl font-bold text-dark mb-2">原型开发</h3>
+                                <p class="text-gray-600">完成首个AI解读《道德经》的原型系统，实现基础的自然语言处理和知识问答功能。</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2022年4月</div>
+                            <div class="timeline-content">
+                                <h3 class="text-xl font-bold text-dark mb-2">内测版本</h3>
+                                <p class="text-gray-600">推出内测版本，邀请高校哲学系师生和国学爱好者参与测试，收集反馈并持续优化。</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2022年11月</div>
+                            <div class="timeline-content">
+                                <h3 class="text-xl font-bold text-dark mb-2">正式上线</h3>
+                                <p class="text-gray-600">平台正式上线，提供AI解读、学习路径、社区交流等核心功能，获得广泛关注和好评。</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-date">2023年6月</div>
+                            <div class="timeline-content">
+                                <h3 class="text-xl font-bold text-dark mb-2">功能扩展</h3>
+                                <p class="text-gray-600">新增资源库和学习工具，与多所高校和研究机构建立合作关系，丰富平台内容。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 团队介绍 -->
+        <section class="py-16 bg-white">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">核心团队</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="team-card">
+                        <img src="https://picsum.photos/id/1/150/150" alt="团队成员" class="team-avatar">
+                        <h3 class="text-xl font-bold text-dark mb-2">李明</h3>
+                        <p class="text-primary mb-2">创始人 & CEO</p>
+                        <p class="text-gray-600">清华大学哲学博士，专注于中国传统文化与现代科技的融合研究，拥有15年国学教育经验。</p>
+                        <div class="flex justify-center mt-4 space-x-3">
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-linkedin text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-twitter text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fas fa-envelope text-xl"></i></a>
+                        </div>
+                    </div>
+                    <div class="team-card">
+                        <img src="https://picsum.photos/id/2/150/150" alt="团队成员" class="team-avatar">
+                        <h3 class="text-xl font-bold text-dark mb-2">王芳</h3>
+                        <p class="text-primary mb-2">技术总监 & CTO</p>
+                        <p class="text-gray-600">北京大学计算机科学硕士，人工智能领域专家，曾在多家知名科技公司担任技术负责人。</p>
+                        <div class="flex justify-center mt-4 space-x-3">
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-linkedin text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-twitter text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fas fa-envelope text-xl"></i></a>
+                        </div>
+                    </div>
+                    <div class="team-card">
+                        <img src="https://picsum.photos/id/3/150/150" alt="团队成员" class="team-avatar">
+                        <h3 class="text-xl font-bold text-dark mb-2">张强</h3>
+                        <p class="text-primary mb-2">内容总监</p>
+                        <p class="text-gray-600">复旦大学中文系博士，国学研究专家，出版多部关于《道德经》和道家思想的学术著作。</p>
+                        <div class="flex justify-center mt-4 space-x-3">
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-linkedin text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fab fa-twitter text-xl"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary"><i class="fas fa-envelope text-xl"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 合作伙伴 -->
+        <section class="py-16">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">合作伙伴</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/1/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/2/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/3/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/4/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/5/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/6/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/7/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                    <div class="flex items-center justify-center">
+                        <img src="https://picsum.photos/id/8/200/80" alt="合作伙伴" class="partner-logo">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 常见问题 -->
+        <section class="py-16 bg-white">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">常见问题</h2>
+                <div class="max-w-3xl mx-auto">
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            <span>道德经AI解读者平台如何保证解读的准确性？</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <p class="text-gray-600">我们的AI系统基于大量权威注解和学术研究训练而成，并由国学专家团队持续审核和优化。同时，我们提供多种解读版本供用户参考，鼓励用户独立思考和批判性学习。</p>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            <span>平台是否提供免费的《道德经》学习资源？</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <p class="text-gray-600">是的，我们提供大量免费的《道德经》学习资源，包括原文、基础注解和AI解读功能。同时，我们也提供付费的高级课程和深度学习内容，以满足不同用户的需求。</p>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            <span>如何参与社区讨论和内容共创？</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <p class="text-gray-600">注册账号后，您可以在社区板块发布帖子、参与讨论、分享学习心得。我们还定期举办线上研讨会和征文活动，欢迎积极参与。优质内容创作者将有机会成为我们的认证贡献者。</p>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            <span>平台是否适合完全没有《道德经》基础的初学者？</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <p class="text-gray-600">当然适合！我们专门为初学者设计了入门学习路径，从基础概念开始，循序渐进地引导学习。AI解读功能也能用通俗易懂的语言解释深奥的哲学概念，帮助初学者轻松入门。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 联系我们 -->
+        <section class="py-16">
+            <div class="container mx-auto">
+                <h2 class="text-3xl font-bold text-primary text-center mb-12">联系我们</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div>
+                        <h3 class="text-xl font-bold text-dark mb-6">联系方式</h3>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-map-marker-alt text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-dark">地址</h4>
+                                <p class="text-gray-600">北京市朝阳区建国路88号SOHO现代城</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-phone text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-dark">电话</h4>
+                                <p class="text-gray-600">+86 123 4567 8900</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-envelope text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-dark">邮箱</h4>
+                                <p class="text-gray-600">contact@daodejing.ai</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i class="fas fa-clock text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-dark">工作时间</h4>
+                                <p class="text-gray-600">周一至周五 9:00-18:00</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-dark mb-6">发送消息</h3>
+                        <form id="contactForm">
+                            <div class="mb-4">
+                                <label for="name" class="block text-gray-700 font-medium mb-2">姓名</label>
+                                <input type="text" id="name" class="form-input w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="email" class="block text-gray-700 font-medium mb-2">邮箱</label>
+                                <input type="email" id="email" class="form-input w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="subject" class="block text-gray-700 font-medium mb-2">主题</label>
+                                <input type="text" id="subject" class="form-input w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" required>
+                            </div>
+                            <div class="mb-6">
+                                <label for="message" class="block text-gray-700 font-medium mb-2">消息</label>
+                                <textarea id="message" rows="5" class="form-input w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-full">发送消息</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white py-8">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="logo mr-2">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <span class="text-xl font-bold">道德经AI解读者</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        结合AI技术与传统文化，为您提供智能化的道德经学习体验
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weixin text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-weibo text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">平台功能</h4>
+                    <ul class="space-y-2">
+                        <li><a href="ai-interpretation.html" class="text-gray-400 hover:text-white">AI解读</a></li>
+                        <li><a href="learning-path.html" class="text-gray-400 hover:text-white">学习路径</a></li>
+                        <li><a href="community.html" class="text-gray-400 hover:text-white">社区交流</a></li>
+                        <li><a href="resource-library.html" class="text-gray-400 hover:text-white">资源库</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">学习资源</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">道德经原文</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">注解版本</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">学习工具</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">研究论文</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400"><i class="fas fa-envelope mr-2"></i>contact@daodejing.ai</li>
+                        <li class="text-gray-400"><i class="fas fa-phone mr-2"></i>+86 123 4567 8900</li>
+                        <li class="text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i>北京市朝阳区</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2023 道德经AI互动解读者平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 引入JavaScript文件 -->
+    <script src="js/main.js"></script>
+    <script src="js/auth-module.js"></script>
+    <script src="js/scroll-effects.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化导航栏
+            initNavbar();
+            
+            // 初始化认证模块
+            initAuthModule();
+            
+            // 初始化滚动效果
+            initScrollEffects();
+            
+            // FAQ折叠功能
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question');
+                question.addEventListener('click', function() {
+                    // 切换当前FAQ项的活动状态
+                    item.classList.toggle('active');
+                    
+                    // 关闭其他FAQ项
+                    faqItems.forEach(otherItem => {
+                        if (otherItem !== item) {
+                            otherItem.classList.remove('active');
+                        }
+                    });
+                });
+            });
+            
+            // 联系表单提交
+            const contactForm = document.getElementById('contactForm');
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('name').value;
+                const email = document.getElementById('email').value;
+                const subject = document.getElementById('subject').value;
+                const message = document.getElementById('message').value;
+                
+                // 这里应该发送到服务器
+                console.log('联系表单提交:', { name, email, subject, message });
+                
+                // 清空表单
+                contactForm.reset();
+                
+                // 显示成功消息
+                alert('消息发送成功！我们会尽快回复您。');
+            });
+        });
+    </script>
+    
+    <!-- 登录注册模态框 -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content modal-fade">
+            <div class="auth-modal-header">
+                <h3 id="authTitle" class="text-xl font-semibold">登录</h3>
+                <button id="closeAuthModal" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="auth-modal-body">
+                <form id="authForm">
+                    <div class="mb-4">
+                        <label for="email" class="block text-sm font-medium text-dark mb-2">邮箱</label>
+                        <input type="email" id="email" name="email" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="emailError" class="error-message text-red-500">请输入有效的邮箱地址</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="block text-sm font-medium text-dark mb-2">密码</label>
+                        <input type="password" id="password" name="password" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="passwordError" class="error-message text-red-500">密码至少需要6个字符</div>
+                    </div>
+                    
+                    <div id="confirmPasswordDiv" class="mb-4 hidden">
+                        <label for="confirmPassword" class="block text-sm font-medium text-dark mb-2">确认密码</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword"
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="confirmPasswordError" class="error-message text-red-500">两次输入的密码不一致</div>
+                    </div>
+                    
+                    <div id="passwordStrengthDiv" class="mb-4 hidden">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm text-dark">密码强度</span>
+                            <span id="strengthText" class="text-sm text-dark">弱</span>
+                        </div>
+                        <div class="strength-bar">
+                            <div id="strengthFill" class="strength-fill bg-red-500" style="width: 25%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <button type="submit" id="authSubmitBtn" class="w-full py-2 px-4 btn-primary rounded-md flex justify-center items-center">
+                            <span id="authBtnText">登录</span>
+                            <div id="authLoadingSpinner" class="loading-spinner ml-2">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="auth-modal-footer">
+                <div class="text-center text-sm">
+                    <span id="authFooterText">还没有账号？</span>
+                    <a href="#" id="authToggleLink" class="text-accent hover:underline">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
