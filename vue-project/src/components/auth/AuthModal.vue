@@ -305,9 +305,17 @@ const checkPasswordStrength = () => {
 
 // 方法：处理登录
 const handleLogin = async () => {
+  // 表单验证
+  if (!loginForm.email || !loginForm.password) {
+    alert('请填写邮箱和密码')
+    return
+  }
+  
   isLoading.value = true
   try {
-    await login(loginForm.email)
+    await login(loginForm.email, loginForm.password)
+  } catch (error: any) {
+    alert(error.message || '登录失败，请检查邮箱和密码')
   } finally {
     isLoading.value = false
   }
@@ -315,9 +323,28 @@ const handleLogin = async () => {
 
 // 方法：处理注册
 const handleRegister = async () => {
+  // 表单验证
+  if (!registerForm.name || !registerForm.email || !registerForm.password || !registerForm.confirmPassword) {
+    alert('请填写所有必填字段')
+    return
+  }
+  
+  if (passwordMismatch.value) {
+    alert('两次输入的密码不一致')
+    return
+  }
+  
+  // 密码强度检查
+  if (strengthPercent.value < 50) {
+    alert('密码强度不足，请使用更强的密码')
+    return
+  }
+  
   isLoading.value = true
   try {
-    await register(registerForm.name, registerForm.email)
+    await register(registerForm.name, registerForm.email, registerForm.password, registerForm.name)
+  } catch (error: any) {
+    alert(error.message || '注册失败，请稍后重试')
   } finally {
     isLoading.value = false
   }

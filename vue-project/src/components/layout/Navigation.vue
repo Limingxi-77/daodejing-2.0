@@ -80,7 +80,7 @@
             <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
               <i class="fas fa-user"></i>
             </div>
-            <span class="text-primary font-semibold">{{ user?.name || '用户' }}</span>
+            <span class="text-primary font-semibold">{{ user?.display_name || '用户' }}</span>
           </div>
           <button @click="logout" class="text-sm text-secondary hover:text-red-500 transition-colors flex items-center">
             <i class="fas fa-sign-out-alt mr-1"></i>退出
@@ -160,7 +160,7 @@
             <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
               <i class="fas fa-user text-lg"></i>
             </div>
-            <span class="text-primary font-semibold">{{ user?.name || '用户' }}</span>
+            <span class="text-primary font-semibold">{{ user?.display_name || '用户' }}</span>
           </div>
           <button @click="logout" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
             <i class="fas fa-sign-out-alt mr-2"></i>退出登录

@@ -4,6 +4,23 @@ import requests
 import os
 import sys
 import importlib.util
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
+
+# 导入认证模块（使用SQLite版本）
+from auth_sqlite import (
+    register_user, login_user, get_user_profile, 
+    logout_user, refresh_token
+)
+
+# 占位函数（待实现）
+def forgot_password():
+    return jsonify({'message': '密码重置功能待实现'}), 501
+
+def reset_password():
+    return jsonify({'message': '密码重置功能待实现'}), 501
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
@@ -285,9 +302,39 @@ def ask_ai():
 def health_check():
     return jsonify({'status': 'healthy', 'service': 'AI问答后端'})
 
+# 认证API路由
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    return register_user()
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    return login_user()
+
+@app.route('/api/auth/profile', methods=['GET'])
+def profile():
+    return get_user_profile()
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    return logout_user()
+
+@app.route('/api/auth/refresh', methods=['POST'])
+def refresh():
+    return refresh_token()
+
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password_endpoint():
+    return forgot_password()
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password_endpoint():
+    return reset_password()
+
 if __name__ == '__main__':
     print("启动AI问答后端服务...")
     print("服务地址: http://localhost:8000")
     print("API端点: http://localhost:8000/api/ai/ask")
+    print("认证API端点: http://localhost:8000/api/auth/*")
     print("健康检查: http://localhost:8000/health")
     app.run(host='127.0.0.1', port=8000, debug=True)

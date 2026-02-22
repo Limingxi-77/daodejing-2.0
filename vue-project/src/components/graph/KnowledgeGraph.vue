@@ -8,14 +8,14 @@
          class="absolute z-10 bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg border-l-4 border-primary max-w-xs transition-all duration-200"
          :style="tooltipStyle">
       <div class="flex justify-between items-start">
-        <h3 class="text-lg font-bold text-primary mb-1">{{ (selectedNode || hoveredNode).id }}</h3>
+        <h3 class="text-lg font-bold text-primary mb-1">{{ getCurrentNode()?.id }}</h3>
         <button v-if="selectedNode" @click="selectedNode = null" class="text-gray-400 hover:text-gray-600">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <p class="text-sm text-gray-600 mb-2">{{ (selectedNode || hoveredNode).desc }}</p>
+      <p class="text-sm text-gray-600 mb-2">{{ getCurrentNode()?.desc }}</p>
       <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block">
-        <i class="fas fa-link mr-1"></i>关联章节: {{ (selectedNode || hoveredNode).chapters.length }} 章
+        <i class="fas fa-link mr-1"></i>关联章节: {{ getCurrentNode()?.chapters?.length || 0 }} 章
       </div>
     </div>
 
@@ -60,6 +60,10 @@ const hoveredNode = ref<GraphNode | null>(null)
 const selectedNode = ref<GraphNode | null>(null)
 const tooltipPos = ref({ x: 0, y: 0 })
 const loading = ref(true)
+
+const getCurrentNode = () => {
+  return selectedNode.value || hoveredNode.value
+}
 
 const tooltipStyle = computed(() => {
   // If selected (mobile/click), center it or place it fixed
