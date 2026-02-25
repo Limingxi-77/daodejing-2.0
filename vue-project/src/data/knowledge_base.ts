@@ -74,17 +74,6 @@ export const knowledgeBase: KnowledgeItem[] = [
   }
 ];
 
-<<<<<<< HEAD
-// 简单的搜索函数（向后兼容）
-export const searchKnowledge = (query: string): KnowledgeItem | null => {
-  const fuse = new Fuse(knowledgeBase, {
-    keys: ['content', 'keywords'],
-    threshold: 0.4
-  });
-  
-  const result = fuse.search(query);
-  return result.length > 0 ? result[0].item : null;
-=======
 // Initialize Fuse with fuzzy search options
 const fuse = new Fuse(knowledgeBase, {
   keys: [
@@ -106,5 +95,4 @@ export const searchKnowledge = (query: string): KnowledgeItem | null => {
   }
   
   return null;
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 };
