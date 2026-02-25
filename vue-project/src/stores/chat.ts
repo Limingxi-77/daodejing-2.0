@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ChatMessage } from '@/types/chat'
 import { searchKnowledge } from '@/data/knowledge_base'
-<<<<<<< HEAD
 import { 
   createConversation, 
   saveMessage, 
@@ -49,19 +48,11 @@ export const useChatStore = defineStore('chat', () => {
   // 初始化欢迎消息
   const initializeWelcomeMessage = () => {
     const welcomeMessage: ChatMessage = {
-=======
-
-export const useChatStore = defineStore('chat', () => {
-  // 状态
-  const messages = ref<ChatMessage[]>([
-    {
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
       id: '1',
       content: '您好！我是道德经AI解读者，我可以帮您解读《道德经》的章节，解释其中的概念，或者与您探讨其中的哲理。请问您想了解哪方面的内容？',
       type: 'ai',
       timestamp: new Date()
     }
-<<<<<<< HEAD
     
     if (messages.value.length === 0) {
       messages.value.push(welcomeMessage)
@@ -70,12 +61,6 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
   }
-=======
-  ])
-  
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 
   // 快捷问题
   const quickQuestions = ref([
@@ -117,14 +102,11 @@ export const useChatStore = defineStore('chat', () => {
   const sendMessage = async (content: string, persona: string = 'scholar') => {
     if (!content.trim()) return
 
-<<<<<<< HEAD
     // 确保有当前会话
     if (!currentConversation.value) {
       await initializeConversation()
     }
 
-=======
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
     // 添加用户消息
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -133,17 +115,13 @@ export const useChatStore = defineStore('chat', () => {
       timestamp: new Date()
     }
     messages.value.push(userMessage)
-<<<<<<< HEAD
     await saveMessage(userMessage)
-=======
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 
     // 设置加载状态
     isLoading.value = true
     error.value = null
 
     try {
-<<<<<<< HEAD
       // 检查AI服务状态，如果未初始化，使用模拟数据作为降级方案
       const serviceStatus = getServiceStatus()
       
@@ -204,10 +182,6 @@ export const useChatStore = defineStore('chat', () => {
   const sendMockMessage = async (content: string, persona: string) => {
     try {
       // 模拟 RAG 检索
-=======
-      // 模拟 RAG 检索
-      // 实际项目中，这里会先调用后端 Search API 检索向量数据库，然后将检索结果 (Context) 喂给 LLM
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
       const knowledge = searchKnowledge(content)
       
       // 模拟网络延迟
@@ -229,32 +203,27 @@ export const useChatStore = defineStore('chat', () => {
       } else {
         // 兜底逻辑
         if (content.includes('第一章') || content.includes('道可道')) {
-          mockAnswer = `${prefix}《道德经》**第一章**“道可道，非常道”是全书的总纲。它告诉我们：\n\n> “道”如果是可以用语言完全描述出来的，那它就不是永恒不变的、真正的“道”了。\n\n语言是有限的，而道是无限的。`
+          mockAnswer = `${prefix}《道德经》**第一章**"道可道，非常道"是全书的总纲。它告诉我们：\n\n> "道"如果是可以用语言完全描述出来的，那它就不是永恒不变的、真正的"道"了。\n\n语言是有限的，而道是无限的。`
         } else if (content.includes('无为')) {
-          mockAnswer = `${prefix}“无为”并不是什么都不做，而是指**顺应自然规律**，不妄为、不强求。\n\n- 在治理国家上，意味着不干扰百姓的自然生活\n- 在个人修养上，意味着消除私欲，回归本真`
+          mockAnswer = `${prefix}"无为"并不是什么都不做，而是指**顺应自然规律**，不妄为、不强求。\n\n- 在治理国家上，意味着不干扰百姓的自然生活\n- 在个人修养上，意味着消除私欲，回归本真`
         } else if (content.includes('上善若水')) {
-          mockAnswer = `${prefix}“上善若水”出自**第八章**。水有几个特性：\n\n1. 滋养万物而不争名利\n2. 甘心停留在众人厌恶的低洼之地\n\n正因为水不争，所以天下没有人能与它相争。这也是道家推崇的处世哲学。`
+          mockAnswer = `${prefix}"上善若水"出自**第八章**。水有几个特性：\n\n1. 滋养万物而不争名利\n2. 甘心停留在众人厌恶的低洼之地\n\n正因为水不争，所以天下没有人能与它相争。这也是道家推崇的处世哲学。`
         } else {
           if (persona === 'sage') {
-             mockAnswer = `善哉，道友所问：“${content}”，颇具慧根。世间万物，皆有其道。此事不妨从“道法自然”观之，去其执念，方见真章。`
+             mockAnswer = `善哉，道友所问："${content}"，颇具慧根。世间万物，皆有其道。此事不妨从"道法自然"观之，去其执念，方见真章。`
           } else if (persona === 'healer') {
-             mockAnswer = `感受到你对“${content}”的关注。在道家看来，身心本一体。试着放下对结果的焦虑，像水一样顺流而下，或许答案自然浮现。`
+             mockAnswer = `感受到你对"${content}"的关注。在道家看来，身心本一体。试着放下对结果的焦虑，像水一样顺流而下，或许答案自然浮现。`
           } else {
-             mockAnswer = `这是一个很好的问题：“${content}”。从道德经的角度来看，我们要学会透过现象看本质。虽然目前我还不能针对这个问题给出特定的经文解释，但建议您可以参考“道法自然”的思想，尝试放下执念，顺其自然地看待它。`
+             mockAnswer = `这是一个很好的问题："${content}"。从道德经的角度来看，我们要学会透过现象看本质。虽然目前我还不能针对这个问题给出特定的经文解释，但建议您可以参考"道法自然"的思想，尝试放下执念，顺其自然地看待它。`
           }
         }
       }
       
-<<<<<<< HEAD
       const aiMessage: ChatMessage = {
-=======
-      messages.value.push({
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
         id: (Date.now() + 1).toString(),
         content: mockAnswer,
         type: 'ai',
         timestamp: new Date()
-<<<<<<< HEAD
       }
       
       messages.value.push(aiMessage)
@@ -262,13 +231,6 @@ export const useChatStore = defineStore('chat', () => {
       
     } catch (err) {
       error.value = err instanceof Error ? err.message : '发生了未知错误'
-=======
-      })
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : '发生了未知错误'
-    } finally {
-      isLoading.value = false
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
     }
   }
 
@@ -280,7 +242,6 @@ export const useChatStore = defineStore('chat', () => {
     sendMessage(`请帮我解读《道德经》${chapter}`)
   }
 
-<<<<<<< HEAD
   // 会话管理函数
   const switchConversation = async (conversationId: string) => {
     const conversation = conversations.value.find(c => c.id === conversationId)
@@ -333,8 +294,6 @@ export const useChatStore = defineStore('chat', () => {
     setAPIKey(providerName, apiKey)
   }
 
-=======
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
   return {
     messages,
     isLoading,
@@ -342,7 +301,6 @@ export const useChatStore = defineStore('chat', () => {
     quickQuestions,
     chapters,
     popularQuestions,
-<<<<<<< HEAD
     conversations,
     currentConversation,
     conversationsLoading,
@@ -358,14 +316,9 @@ export const useChatStore = defineStore('chat', () => {
     loadAllConversations,
     initializeWelcomeMessage,
     // AI服务管理
-     initAIService,
-     getAIServiceStatus,
-     getAvailableAIProviders,
-     setAIProviderAPIKey
-=======
-    sendMessage,
-    sendQuickQuestion,
-    sendChapterQuestion
->>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
+    initAIService,
+    getAIServiceStatus,
+    getAvailableAIProviders,
+    setAIProviderAPIKey
   }
 })
