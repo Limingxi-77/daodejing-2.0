@@ -1,0 +1,781 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社区 - 道德经AI互动解读者平台</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/auth-module.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        /* 社区页面特定样式 */
+        .post-card {
+            transition: all 0.3s ease;
+        }
+        
+        .post-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            border-radius: 9999px;
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .tag:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .reaction-btn {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        
+        .reaction-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+        }
+        
+        .reaction-btn.active {
+            color: var(--primary-color);
+        }
+        
+        .tab-nav {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tab-nav button {
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s ease;
+        }
+        
+        .tab-nav button:hover {
+            color: var(--primary-color);
+        }
+        
+        .tab-nav button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .create-post-form {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- 导航栏 -->
+    <nav id="mainNav" class="fixed w-full top-0 z-50 transition-all duration-300 py-4">
+        <div class="container mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-primary mr-2">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="text-xl font-semibold text-primary">道德经AI解读者</div>
+            </div>
+            
+            <!-- 桌面端导航 -->
+            <div class="nav-links hidden md:flex space-x-8">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors">学习路径</a>
+                <a href="community.html" class="text-accent font-semibold">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors">关于</a>
+            </div>
+            
+            <!-- 登录/注册按钮 -->
+            <div class="hidden md:flex space-x-4">
+                <button id="loginBtnNav" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                <button id="registerBtnNav" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn md:hidden text-primary">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动端菜单 -->
+        <div id="mobileMenu" class="mobile-menu bg-light border-t border-secondary mt-4 hidden">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="index.html" class="text-primary hover:text-accent transition-colors py-2">首页</a>
+                <a href="ai-interpretation.html" class="text-primary hover:text-accent transition-colors py-2">AI解读</a>
+                <a href="learning-path.html" class="text-primary hover:text-accent transition-colors py-2">学习路径</a>
+                <a href="community.html" class="text-accent font-semibold py-2">共创社区</a>
+                <a href="resource-library.html" class="text-primary hover:text-accent transition-colors py-2">资源库</a>
+                <a href="about.html" class="text-primary hover:text-accent transition-colors py-2">关于</a>
+                <div class="flex space-x-4 pt-2">
+                    <button id="loginBtnMobile" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
+                    <button id="registerBtnMobile" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 md:px-8 pt-24 pb-12">
+        <!-- 页面标题 -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-primary mb-4">道德经社区</h1>
+            <p class="text-xl text-dark max-w-3xl mx-auto">
+                与同道中人交流心得，分享感悟，共同探索《道德经》的智慧
+            </p>
+        </div>
+
+        <!-- 社区统计 -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-3xl font-bold text-primary mb-2">1,234</div>
+                <div class="text-gray-600">社区成员</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-3xl font-bold text-primary mb-2">567</div>
+                <div class="text-gray-600">讨论帖子</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-3xl font-bold text-primary mb-2">2,345</div>
+                <div class="text-gray-600">回复评论</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="text-3xl font-bold text-primary mb-2">89</div>
+                <div class="text-gray-600">今日活跃</div>
+            </div>
+        </section>
+
+        <!-- 创建帖子表单 -->
+        <section class="create-post-form">
+            <h2 class="text-xl font-bold text-dark mb-4">分享您的想法</h2>
+            <form id="createPostForm">
+                <div class="form-group">
+                    <label for="postTitle" class="form-label">标题</label>
+                    <input type="text" id="postTitle" class="form-input" placeholder="请输入帖子标题...">
+                </div>
+                <div class="form-group">
+                    <label for="postContent" class="form-label">内容</label>
+                    <textarea id="postContent" class="form-textarea" placeholder="分享您对《道德经》的理解、感悟或问题..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="postTags" class="form-label">标签</label>
+                    <input type="text" id="postTags" class="form-input" placeholder="添加标签，用空格分隔（如：第八章 上善若水 感悟）">
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" class="btn btn-outline mr-2">保存草稿</button>
+                    <button type="submit" class="btn btn-primary">发布帖子</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 标签导航 -->
+        <section class="mb-8">
+            <div class="tab-nav">
+                <button class="active" data-tab="latest">最新发布</button>
+                <button data-tab="popular">热门讨论</button>
+                <button data-tab="following">关注的人</button>
+                <button data-tab="unanswered">待解答</button>
+            </div>
+        </section>
+
+        <!-- 帖子列表 -->
+        <section>
+            <!-- 最新发布 -->
+            <div id="latest" class="tab-content active">
+                <div class="space-y-6">
+                    <!-- 帖子1 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/1/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">张明</h3>
+                                    <span class="text-sm text-gray-500">2小时前</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">对"上善若水"的现代理解</h2>
+                                <p class="text-gray-700 mb-4">
+                                    最近在研读《道德经》第八章"上善若水"，深有感触。老子以水喻道，认为水的特性最接近于"道"的本质。在现代社会中，我们如何理解和实践这种"上善若水"的智慧呢？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#第八章</span>
+                                    <span class="tag">#上善若水</span>
+                                    <span class="tag">#现代应用</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>23</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>15</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- 帖子2 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/2/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">李静</h3>
+                                    <span class="text-sm text-gray-500">5小时前</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">《道德经》与心理健康的联系</h2>
+                                <p class="text-gray-700 mb-4">
+                                    作为一名心理咨询师，我发现《道德经》中的许多理念与现代心理健康理论不谋而合。"无为而治"对应着正念中的"不评判"，"知足常乐"与积极心理学中的"感恩练习"相似。大家如何看待这种古代智慧与现代科学的契合？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#心理健康</span>
+                                    <span class="tag">#无为</span>
+                                    <span class="tag">#现代应用</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>45</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>28</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- 帖子3 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/3/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">王强</h3>
+                                    <span class="text-sm text-gray-500">1天前</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">关于"道可道，非常道"的多种解释</h2>
+                                <p class="text-gray-700 mb-4">
+                                    《道德经》开篇"道可道，非常道；名可名，非常名"有多种解释。有人认为这是说真正的"道"无法用语言表达，有人认为这是在强调语言的局限性。我整理了历代学者的不同解读，想听听大家的看法。
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#第一章</span>
+                                    <span class="tag">#道可道</span>
+                                    <span class="tag">#学术讨论</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>67</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>42</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+
+            <!-- 热门讨论 -->
+            <div id="popular" class="tab-content">
+                <div class="space-y-6">
+                    <!-- 热门帖子1 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/4/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">赵敏</h3>
+                                    <span class="text-sm text-gray-500">3天前</span>
+                                    <span class="ml-2 px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full">热门</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">如何将"无为而治"应用到现代企业管理中？</h2>
+                                <p class="text-gray-700 mb-4">
+                                    作为一个创业者，我一直思考如何将《道德经》中的"无为而治"理念应用到企业管理中。不是放任不管，而是创造一个让员工自发成长的环境。大家有什么实践经验可以分享吗？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#无为而治</span>
+                                    <span class="tag">#企业管理</span>
+                                    <span class="tag">#实践应用</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn active">
+                                            <i class="fas fa-thumbs-up mr-1"></i>
+                                            <span>156</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>89</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- 热门帖子2 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/5/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">陈涛</h3>
+                                    <span class="text-sm text-gray-500">5天前</span>
+                                    <span class="ml-2 px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full">热门</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">《道德经》与环保理念的不谋而合</h2>
+                                <p class="text-gray-700 mb-4">
+                                    《道德经》中"人法地，地法天，天法道，道法自然"的思想，与现代环保理念高度契合。老子强调顺应自然，减少人为干预，这与当代生态保护理念不谋而合。我们应该如何从《道德经》中汲取环保智慧？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#环保</span>
+                                    <span class="tag">#道法自然</span>
+                                    <span class="tag">#生态保护</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>128</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>76</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+
+            <!-- 关注的人 -->
+            <div id="following" class="tab-content">
+                <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                    <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
+                    <h3 class="text-xl font-medium text-dark mb-2">您还没有关注任何人</h3>
+                    <p class="text-gray-600 mb-6">关注其他用户，查看他们的最新动态</p>
+                    <button class="btn btn-primary">发现用户</button>
+                </div>
+            </div>
+
+            <!-- 待解答 -->
+            <div id="unanswered" class="tab-content">
+                <div class="space-y-6">
+                    <!-- 待解答帖子1 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/6/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">刘洋</h3>
+                                    <span class="text-sm text-gray-500">1天前</span>
+                                    <span class="ml-2 px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded-full">待解答</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">如何理解"知者不言，言者不知"？</h2>
+                                <p class="text-gray-700 mb-4">
+                                    《道德经》第五十六章说"知者不言，言者不知"，这是否意味着真正的智者不应该表达自己的见解？这与我们鼓励知识分享的现代价值观是否矛盾？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#第五十六章</span>
+                                    <span class="tag">#知者不言</span>
+                                    <span class="tag">#疑问</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>12</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>3</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- 待解答帖子2 -->
+                    <article class="post-card bg-white rounded-lg shadow-md p-6">
+                        <div class="flex items-start mb-4">
+                            <img src="https://picsum.photos/id/7/40/40" alt="用户头像" class="user-avatar mr-3">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <h3 class="font-medium text-dark mr-2">周芳</h3>
+                                    <span class="text-sm text-gray-500">2天前</span>
+                                    <span class="ml-2 px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded-full">待解答</span>
+                                </div>
+                                <h2 class="text-xl font-bold text-dark mb-2">《道德经》中的"小国寡民"思想是否适用于现代社会？</h2>
+                                <p class="text-gray-700 mb-4">
+                                    《道德经》第八十章描述了"小国寡民"的理想社会，这与现代全球化、城市化趋势是否相悖？我们应该如何理解这种思想在当代的意义？
+                                </p>
+                                <div class="mb-4">
+                                    <span class="tag">#第八十章</span>
+                                    <span class="tag">#小国寡民</span>
+                                    <span class="tag">#现代社会</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4">
+                                        <button class="reaction-btn">
+                                            <i class="far fa-thumbs-up mr-1"></i>
+                                            <span>18</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-comment mr-1"></i>
+                                            <span>5</span>
+                                        </button>
+                                        <button class="reaction-btn">
+                                            <i class="far fa-bookmark mr-1"></i>
+                                            <span>收藏</span>
+                                        </button>
+                                    </div>
+                                    <button class="reaction-btn">
+                                        <i class="fas fa-share mr-1"></i>
+                                        <span>分享</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- 加载更多按钮 -->
+        <div class="text-center mt-8">
+            <button class="btn btn-outline">加载更多</button>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white py-8">
+        <div class="container">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="logo mr-2">
+                            <i class="fas fa-yin-yang"></i>
+                        </div>
+                        <span class="text-xl font-bold">道德经AI解读者</span>
+                    </div>
+                    <p class="text-gray-400">
+                        以AI智慧，探索老子思想的现代价值
+                    </p>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">平台功能</h4>
+                    <ul class="space-y-2">
+                        <li><a href="ai-interpretation.html" class="text-gray-400 hover:text-white">AI解读</a></li>
+                        <li><a href="learning-path.html" class="text-gray-400 hover:text-white">学习路径</a></li>
+                        <li><a href="community.html" class="text-gray-400 hover:text-white">社区交流</a></li>
+                        <li><a href="resource-library.html" class="text-gray-400 hover:text-white">资源库</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">学习资源</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">道德经原文</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">注解版本</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">学习工具</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">研究论文</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400"><i class="fas fa-envelope mr-2"></i>contact@daodejing.ai</li>
+                        <li class="text-gray-400"><i class="fas fa-phone mr-2"></i>+86 123 4567 8900</li>
+                        <li class="text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i>北京市朝阳区</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2023 道德经AI互动解读者平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 登录注册模态框 -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content modal-fade">
+            <div class="auth-modal-header">
+                <h3 id="authTitle" class="text-xl font-semibold">登录</h3>
+                <button id="closeAuthModal" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="auth-modal-body">
+                <form id="authForm">
+                    <div class="mb-4">
+                        <label for="email" class="block text-sm font-medium text-dark mb-2">邮箱</label>
+                        <input type="email" id="email" name="email" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="emailError" class="error-message text-red-500">请输入有效的邮箱地址</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="block text-sm font-medium text-dark mb-2">密码</label>
+                        <input type="password" id="password" name="password" required
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="passwordError" class="error-message text-red-500">密码至少需要6个字符</div>
+                    </div>
+                    
+                    <div id="confirmPasswordDiv" class="mb-4 hidden">
+                        <label for="confirmPassword" class="block text-sm font-medium text-dark mb-2">确认密码</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword"
+                            class="w-full px-3 py-2 border border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent">
+                        <div id="confirmPasswordError" class="error-message text-red-500">两次输入的密码不一致</div>
+                    </div>
+                    
+                    <div id="passwordStrengthDiv" class="mb-4 hidden">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm text-dark">密码强度</span>
+                            <span id="strengthText" class="text-sm text-dark">弱</span>
+                        </div>
+                        <div class="strength-bar">
+                            <div id="strengthFill" class="strength-fill bg-red-500" style="width: 25%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <button type="submit" id="authSubmitBtn" class="w-full py-2 px-4 btn-primary rounded-md flex justify-center items-center">
+                            <span id="authBtnText">登录</span>
+                            <div id="authLoadingSpinner" class="loading-spinner ml-2">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="auth-modal-footer">
+                <div class="text-center text-sm">
+                    <span id="authFooterText">还没有账号？</span>
+                    <a href="#" id="authToggleLink" class="text-accent hover:underline">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入JavaScript文件 -->
+    <script src="js/main.js"></script>
+    <script src="js/auth-module.js"></script>
+    <script src="js/scroll-effects.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        // 标签页切换功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化认证模块
+            initAuthModule();
+            
+            // 初始化滚动效果
+            initScrollEffects();
+            
+            // 标签页切换
+            const tabButtons = document.querySelectorAll('.tab-nav button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // 移除所有活动状态
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // 添加当前活动状态
+                    this.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // 创建帖子表单提交
+            const createPostForm = document.getElementById('createPostForm');
+            createPostForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const title = document.getElementById('postTitle').value;
+                const content = document.getElementById('postContent').value;
+                const tags = document.getElementById('postTags').value;
+                
+                if (!title || !content) {
+                    alert('请填写标题和内容');
+                    return;
+                }
+                
+                // 这里应该发送到服务器
+                console.log('创建帖子:', { title, content, tags });
+                
+                // 清空表单
+                createPostForm.reset();
+                
+                // 显示成功消息
+                alert('帖子发布成功！');
+                
+                // 刷新页面或动态添加新帖子
+                // window.location.reload();
+            });
+            
+            // 点赞功能
+            const likeButtons = document.querySelectorAll('.reaction-btn');
+            likeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    if (this.querySelector('.fa-thumbs-up')) {
+                        this.classList.toggle('active');
+                        const countSpan = this.querySelector('span');
+                        let count = parseInt(countSpan.textContent);
+                        
+                        if (this.classList.contains('active')) {
+                            count++;
+                            this.querySelector('i').classList.remove('far');
+                            this.querySelector('i').classList.add('fas');
+                        } else {
+                            count--;
+                            this.querySelector('i').classList.remove('fas');
+                            this.querySelector('i').classList.add('far');
+                        }
+                        
+                        countSpan.textContent = count;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
