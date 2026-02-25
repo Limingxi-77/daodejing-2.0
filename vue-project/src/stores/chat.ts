@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ChatMessage } from '@/types/chat'
 import { searchKnowledge } from '@/data/knowledge_base'
+<<<<<<< HEAD
 import { 
   createConversation, 
   saveMessage, 
@@ -48,11 +49,19 @@ export const useChatStore = defineStore('chat', () => {
   // 初始化欢迎消息
   const initializeWelcomeMessage = () => {
     const welcomeMessage: ChatMessage = {
+=======
+
+export const useChatStore = defineStore('chat', () => {
+  // 状态
+  const messages = ref<ChatMessage[]>([
+    {
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
       id: '1',
       content: '您好！我是道德经AI解读者，我可以帮您解读《道德经》的章节，解释其中的概念，或者与您探讨其中的哲理。请问您想了解哪方面的内容？',
       type: 'ai',
       timestamp: new Date()
     }
+<<<<<<< HEAD
     
     if (messages.value.length === 0) {
       messages.value.push(welcomeMessage)
@@ -61,6 +70,12 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
   }
+=======
+  ])
+  
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 
   // 快捷问题
   const quickQuestions = ref([
@@ -102,11 +117,14 @@ export const useChatStore = defineStore('chat', () => {
   const sendMessage = async (content: string, persona: string = 'scholar') => {
     if (!content.trim()) return
 
+<<<<<<< HEAD
     // 确保有当前会话
     if (!currentConversation.value) {
       await initializeConversation()
     }
 
+=======
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
     // 添加用户消息
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -115,13 +133,17 @@ export const useChatStore = defineStore('chat', () => {
       timestamp: new Date()
     }
     messages.value.push(userMessage)
+<<<<<<< HEAD
     await saveMessage(userMessage)
+=======
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 
     // 设置加载状态
     isLoading.value = true
     error.value = null
 
     try {
+<<<<<<< HEAD
       // 检查AI服务状态，如果未初始化，使用模拟数据作为降级方案
       const serviceStatus = getServiceStatus()
       
@@ -182,6 +204,10 @@ export const useChatStore = defineStore('chat', () => {
   const sendMockMessage = async (content: string, persona: string) => {
     try {
       // 模拟 RAG 检索
+=======
+      // 模拟 RAG 检索
+      // 实际项目中，这里会先调用后端 Search API 检索向量数据库，然后将检索结果 (Context) 喂给 LLM
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
       const knowledge = searchKnowledge(content)
       
       // 模拟网络延迟
@@ -219,11 +245,16 @@ export const useChatStore = defineStore('chat', () => {
         }
       }
       
+<<<<<<< HEAD
       const aiMessage: ChatMessage = {
+=======
+      messages.value.push({
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
         id: (Date.now() + 1).toString(),
         content: mockAnswer,
         type: 'ai',
         timestamp: new Date()
+<<<<<<< HEAD
       }
       
       messages.value.push(aiMessage)
@@ -231,6 +262,13 @@ export const useChatStore = defineStore('chat', () => {
       
     } catch (err) {
       error.value = err instanceof Error ? err.message : '发生了未知错误'
+=======
+      })
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : '发生了未知错误'
+    } finally {
+      isLoading.value = false
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
     }
   }
 
@@ -242,6 +280,7 @@ export const useChatStore = defineStore('chat', () => {
     sendMessage(`请帮我解读《道德经》${chapter}`)
   }
 
+<<<<<<< HEAD
   // 会话管理函数
   const switchConversation = async (conversationId: string) => {
     const conversation = conversations.value.find(c => c.id === conversationId)
@@ -294,6 +333,8 @@ export const useChatStore = defineStore('chat', () => {
     setAPIKey(providerName, apiKey)
   }
 
+=======
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
   return {
     messages,
     isLoading,
@@ -301,6 +342,7 @@ export const useChatStore = defineStore('chat', () => {
     quickQuestions,
     chapters,
     popularQuestions,
+<<<<<<< HEAD
     conversations,
     currentConversation,
     conversationsLoading,
@@ -320,5 +362,10 @@ export const useChatStore = defineStore('chat', () => {
      getAIServiceStatus,
      getAvailableAIProviders,
      setAIProviderAPIKey
+=======
+    sendMessage,
+    sendQuickQuestion,
+    sendChapterQuestion
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
   }
 })

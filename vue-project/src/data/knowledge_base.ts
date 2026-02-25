@@ -74,6 +74,7 @@ export const knowledgeBase: KnowledgeItem[] = [
   }
 ];
 
+<<<<<<< HEAD
 // 简单的搜索函数（向后兼容）
 export const searchKnowledge = (query: string): KnowledgeItem | null => {
   const fuse = new Fuse(knowledgeBase, {
@@ -83,4 +84,27 @@ export const searchKnowledge = (query: string): KnowledgeItem | null => {
   
   const result = fuse.search(query);
   return result.length > 0 ? result[0].item : null;
+=======
+// Initialize Fuse with fuzzy search options
+const fuse = new Fuse(knowledgeBase, {
+  keys: [
+    { name: 'keywords', weight: 0.5 },
+    { name: 'content', weight: 0.3 },
+    { name: 'annotations.modern', weight: 0.2 }
+  ],
+  threshold: 0.4, // Fuzzy matching threshold (0.0 = exact, 1.0 = match anything)
+  includeScore: true
+});
+
+// Enhanced search function (RAG 2.0)
+export const searchKnowledge = (query: string): KnowledgeItem | null => {
+  const results = fuse.search(query);
+  
+  if (results.length > 0) {
+    // Return the best match
+    return results[0].item;
+  }
+  
+  return null;
+>>>>>>> 60f179f9e010426d11f0ac47af89f6d355761052
 };
