@@ -231,7 +231,7 @@ export class LearningAnalyticsService {
   // 生成学习报告
   static generateLearningReport(userId: string): string {
     const stats = this.getUserStats(userId)
-    const records = this.getStudyRecords(userId)
+    // const records = this.getStudyRecords(userId) // 暂时未使用
     const trends = this.getLearningTrends(userId, 7)
 
     let report = `# 学习报告\n\n`

@@ -9,39 +9,49 @@
         </p>
       </div>
 
-      <!-- 学习统计概览 -->
-      <section class="mb-8 bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-bold text-primary mb-6">学习统计概览</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-              <i class="fas fa-clock text-2xl"></i>
-            </div>
-            <h3 class="font-bold text-lg">{{ Math.round(learningStats.totalStudyTime / 60) }}</h3>
-            <p class="text-sm text-gray-600">学习小时</p>
+      <!-- 学习统计 -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-primary mb-6">学习统计</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-primary mb-2">{{ Math.round(learningStats.totalStudyTime / 60) }}</div>
+            <div class="text-gray-600">学习小时</div>
           </div>
-          <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-              <i class="fas fa-book text-2xl"></i>
-            </div>
-            <h3 class="font-bold text-lg">{{ learningStats.completedLessons }}</h3>
-            <p class="text-sm text-gray-600">完成课程</p>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-green-500 mb-2">{{ learningStats.completedLessons }}</div>
+            <div class="text-gray-600">完成课程</div>
           </div>
-          <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
-              <i class="fas fa-fire text-2xl"></i>
-            </div>
-            <h3 class="font-bold text-lg">{{ learningStats.currentStreak }}</h3>
-            <p class="text-sm text-gray-600">连续学习</p>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-blue-500 mb-2">{{ learningStats.currentStreak }}</div>
+            <div class="text-gray-600">连续学习</div>
           </div>
-          <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
-              <i class="fas fa-star text-2xl"></i>
-            </div>
-            <h3 class="font-bold text-lg">{{ learningStats.averageQuizScore }}%</h3>
-            <p class="text-sm text-gray-600">平均分数</p>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-orange-500 mb-2">{{ learningStats.averageQuizScore }}%</div>
+            <div class="text-gray-600">平均分数</div>
           </div>
         </div>
+        
+        <!-- 学习进度可视化 -->
+         <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+           <h3 class="text-lg font-bold text-dark mb-4">学习进度</h3>
+           <div class="space-y-4">
+             <div v-for="path in learningPaths" :key="path.id" class="flex items-center">
+               <div class="w-32 text-sm font-medium text-gray-700">{{ path.name }}</div>
+               <div class="flex-1 ml-4">
+                 <div class="w-full bg-gray-200 rounded-full h-4">
+                   <div 
+                     class="h-4 rounded-full transition-all duration-500" 
+                     :class="getProgressColor(path.id)"
+                     :style="{ width: getPathProgress(path.id) + '%' }"
+                   ></div>
+                 </div>
+               </div>
+               <div class="w-16 text-right text-sm font-medium text-gray-700">
+                 {{ getPathProgress(path.id) }}%
+               </div>
+             </div>
+           </div>
+         </div>
       </section>
 
       <!-- 学习路径选择 -->
@@ -263,9 +273,15 @@
                 <button 
                   v-else-if="lesson.current"
                   @click="openLessonDetail(lesson)"
-                  class="px-4 py-1.5 rounded-md bg-primary text-white text-sm hover:bg-opacity-90 transition-colors shadow-md w-full md:w-auto"
+                  :disabled="isScrolling"
+                  :class="['px-4 py-1.5 rounded-md text-sm transition-colors shadow-md w-full md:w-auto', 
+                    isScrolling ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-opacity-90']"
                 >
-                  开始学习
+                  <span v-if="isScrolling" class="flex items-center">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>
+                    加载中...
+                  </span>
+                  <span v-else>开始学习</span>
                 </button>
                 <button 
                   v-else
@@ -277,33 +293,83 @@
               </div>
             </div>
           </div>
+          
+          <!-- 完成本章和继续学习 -->
+          <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+              <div class="mb-4 md:mb-0">
+                <h3 class="text-lg font-bold text-dark">完成本章学习</h3>
+                <p class="text-gray-600">标记本章为已完成，解锁下一章内容</p>
+              </div>
+              <div class="flex gap-3">
+                <button 
+                  v-if="!currentLesson?.completed"
+                  @click="completeCurrentLesson"
+                  class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md flex items-center"
+                >
+                  <i class="fas fa-check mr-2"></i>
+                  完成本章
+                </button>
+                <button 
+                  v-if="nextLesson"
+                  @click="openLessonDetail(nextLesson)"
+                  class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-md flex items-center"
+                >
+                  <i class="fas fa-arrow-right mr-2"></i>
+                  继续学习下一章
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- 学习笔记区域 -->
-      <section v-if="currentLesson" class="mb-12">
-        <h2 class="text-2xl font-bold text-primary mb-6">学习笔记</h2>
+      <!-- 课程内容展示区域 -->
+      <section v-if="currentLesson" class="mb-12 learning-notes-section">
+        <h2 class="text-2xl font-bold text-primary mb-6" :class="{ 'animate-pulse': isScrolling }">课程内容</h2>
         <div class="bg-white rounded-lg shadow-md p-6">
           <div class="mb-6">
-            <h3 class="text-lg font-bold text-dark mb-4">{{ currentLesson.title }}</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 class="font-medium text-dark mb-2">原文</h4>
-                <div class="bg-gray-50 p-4 rounded-lg text-sm leading-relaxed">
-                  {{ currentLesson.originalText }}
-                </div>
-              </div>
-              <div>
-                <h4 class="font-medium text-dark mb-2">注释</h4>
-                <div class="bg-blue-50 p-4 rounded-lg text-sm leading-relaxed">
-                  {{ currentLesson.annotation }}
-                </div>
+            <h3 class="text-xl font-bold text-dark mb-6">{{ currentLesson.title }}</h3>
+            
+            <!-- 内容标签页 -->
+            <div class="mb-4 border-b">
+              <div class="flex space-x-4">
+                <button 
+                  v-for="tab in contentTabs" 
+                  :key="tab.id"
+                  :class="['px-4 py-2 text-sm font-medium rounded-t-lg transition-colors', 
+                    activeTab === tab.id ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700']"
+                  @click="activeTab = tab.id"
+                >
+                  {{ tab.name }}
+                </button>
               </div>
             </div>
-            <div class="mt-4">
-              <h4 class="font-medium text-dark mb-2">讲解</h4>
-              <div class="bg-green-50 p-4 rounded-lg text-sm leading-relaxed">
-                {{ currentLesson.explanation }}
+            
+            <!-- 标签页内容 -->
+            <div class="bg-gray-50 rounded-lg p-6 transition-all duration-300">
+              <!-- 原文 -->
+              <div v-if="activeTab === 'original'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">原文</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed whitespace-pre-line">{{ currentLesson.originalText }}</p>
+                </div>
+              </div>
+              
+              <!-- 注释 -->
+              <div v-if="activeTab === 'annotation'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">注释</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed">{{ currentLesson.annotation }}</p>
+                </div>
+              </div>
+              
+              <!-- 解析 -->
+              <div v-if="activeTab === 'explanation'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">解析</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed">{{ currentLesson.explanation }}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -397,6 +463,118 @@
         </div>
       </section>
 
+      <!-- 学习目标设置 -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-primary mb-6">学习目标</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <i class="fas fa-flag text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.dailyGoal }}</h3>
+              <p class="text-sm text-gray-600">每日目标(分钟)</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                <i class="fas fa-calendar text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.weeklyGoal }}</h3>
+              <p class="text-sm text-gray-600">每周目标(章节)</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                <i class="fas fa-trophy text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.monthlyGoal }}</h3>
+              <p class="text-sm text-gray-600">月度目标(路径)</p>
+            </div>
+          </div>
+          
+          <div class="flex gap-3">
+            <button 
+              @click="showGoalSetting = true"
+              class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+            >
+              <i class="fas fa-cog mr-2"></i>设置目标
+            </button>
+            <button 
+              @click="resetGoals"
+              class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+            >
+              <i class="fas fa-redo mr-2"></i>重置目标
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 目标设置模态框 -->
+      <div v-if="showGoalSetting" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 md:p-8 max-w-md w-full relative shadow-xl">
+          <button 
+            @click="showGoalSetting = false" 
+            class="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+          
+          <h3 class="text-xl font-bold text-primary mb-6">设置学习目标</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">每日学习时间(分钟)</label>
+              <input 
+                v-model="learningGoals.dailyGoal"
+                type="number" 
+                min="10" 
+                max="240"
+                class="w-full p-2 border rounded-lg"
+                placeholder="30"
+              >
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">每周完成章节数</label>
+              <input 
+                v-model="learningGoals.weeklyGoal"
+                type="number" 
+                min="1" 
+                max="10"
+                class="w-full p-2 border rounded-lg"
+                placeholder="3"
+              >
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">月度完成路径数</label>
+              <input 
+                v-model="learningGoals.monthlyGoal"
+                type="number" 
+                min="1" 
+                max="3"
+                class="w-full p-2 border rounded-lg"
+                placeholder="1"
+              >
+            </div>
+          </div>
+          
+          <div class="flex gap-3 mt-6">
+            <button 
+              @click="saveLearningGoals"
+              class="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+            >
+              保存目标
+            </button>
+            <button 
+              @click="showGoalSetting = false"
+              class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 学习建议 -->
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-primary mb-6">学习建议</h2>
@@ -475,10 +653,10 @@
     <QuizModal 
       v-if="showQuiz" 
       :title="quizLesson?.title || ''"
-      :question="quizQuestion"
+      :questions="quizQuestions"
       :isReview="isReviewMode"
       @close="closeQuiz"
-      @complete="completeLesson"
+      @complete="completeQuiz"
     />
 
     <!-- 随机奇遇模态框 -->
@@ -524,13 +702,14 @@ import RandomEventModal from '@/components/learning/RandomEventModal.vue'
 import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 import { useCultivationStore } from '@/stores/cultivation'
 import { storeToRefs } from 'pinia'
-import { LearningPathService, type Lesson, type LearningPath } from '@/services/learningPathService'
+import { LearningPathService, type Lesson, type LearningPath, Difficulty } from '@/services/learningPathService'
 import { NoteService, type LearningNote } from '@/services/noteService'
 import { LearningAnalyticsService, type LearningStats } from '@/services/learningAnalyticsService'
 
 // 类型定义
 type PathKey = 'beginner' | 'intermediate' | 'advanced'
-type Difficulty = 'easy' | 'medium' | 'hard'
+// 使用导入的Difficulty类型，删除本地定义
+// type Difficulty = 'easy' | 'medium' | 'hard'
 
 // 状态
 const currentPathKey = ref<PathKey | null>(null)
@@ -538,12 +717,31 @@ const currentLesson = ref<Lesson | null>(null)
 const showQuiz = ref(false)
 const quizLesson = ref<Lesson | null>(null)
 const isReviewMode = ref(false)
+const isScrolling = ref(false) // 滚动状态
+const nextLesson = ref<Lesson | null>(null) // 下一章课程
+const learningPaths = ref<LearningPath[]>(LearningPathService.getAllPaths()) // 所有学习路径
+
+// 课程内容标签页
+const activeTab = ref('original')
+const contentTabs = ref([
+  { id: 'original', name: '原文' },
+  { id: 'annotation', name: '注释' },
+  { id: 'explanation', name: '解析' }
+])
 
 // 笔记相关状态
 const newNoteContent = ref('')
 const newNoteTags = ref('')
 const newNoteIsPublic = ref(false)
 const lessonNotes = ref<LearningNote[]>([])
+
+// 学习目标相关状态
+const showGoalSetting = ref(false)
+const learningGoals = ref({
+  dailyGoal: 30,
+  weeklyGoal: 3,
+  monthlyGoal: 1
+})
 
 // 学习统计
 const learningStats = ref<LearningStats>({
@@ -571,8 +769,7 @@ const cultivationStore = useCultivationStore()
 const { addExp } = cultivationStore
 const { showUpgradeModal, currentRealm } = storeToRefs(cultivationStore)
 
-// 学习路径数据
-const learningPaths = ref<LearningPath[]>(LearningPathService.getAllPaths())
+
 
 // 计算属性
 const beginnerProgress = computed(() => {
@@ -599,17 +796,23 @@ const currentPathTotal = computed(() => currentPath.value?.totalLessons || 0)
 const currentPathCompleted = computed(() => currentPath.value?.completedLessons || 0)
 const currentPathProgress = computed(() => currentPathTotal.value ? Math.round((currentPathCompleted.value / currentPathTotal.value) * 100) : 0)
 
-const quizQuestion = computed(() => {
-  if (!quizLesson.value) return null
+const quizQuestions = computed(() => {
+  if (!quizLesson.value) return [{
+    id: 'default',
+    question: '请选择一个问题',
+    options: [{ id: 'a', text: '选项A' }],
+    correctAnswer: 'a',
+    explanation: '默认解释'
+  }]
   
   // 使用课程中的测验题目
   const lesson = quizLesson.value
   if (lesson.quiz && lesson.quiz.length > 0) {
-    return lesson.quiz[0] // 使用第一道题目
+    return lesson.quiz
   }
   
   // 如果没有题目，返回默认题目
-  return {
+  return [{
     id: 'default',
     question: `关于 ${lesson.title} 的核心思想是？`,
     options: [
@@ -620,7 +823,7 @@ const quizQuestion = computed(() => {
     ],
     correctAnswer: 'a',
     explanation: '《道德经》的核心思想之一就是"道法自然"，强调顺应自然规律。'
-  }
+  }]
 })
 
 // 进度环样式
@@ -690,18 +893,18 @@ const selectPath = (key: PathKey) => {
 
 const getDifficultyClass = (diff: Difficulty) => {
   switch (diff) {
-    case 'easy': return 'bg-green-100 text-green-700'
-    case 'medium': return 'bg-orange-100 text-orange-700'
-    case 'hard': return 'bg-red-100 text-red-700'
+    case Difficulty.BEGINNER: return 'bg-green-100 text-green-700'
+    case Difficulty.INTERMEDIATE: return 'bg-orange-100 text-orange-700'
+    case Difficulty.ADVANCED: return 'bg-red-100 text-red-700'
     default: return 'bg-gray-100 text-gray-700'
   }
 }
 
 const getDifficultyText = (diff: Difficulty) => {
   switch (diff) {
-    case 'easy': return '初级'
-    case 'medium': return '中级'
-    case 'hard': return '高级'
+    case Difficulty.BEGINNER: return '初级'
+    case Difficulty.INTERMEDIATE: return '中级'
+    case Difficulty.ADVANCED: return '高级'
     default: return '未知'
   }
 }
@@ -710,32 +913,130 @@ const openLessonDetail = (lesson: Lesson) => {
   currentLesson.value = lesson
   loadLessonNotes(lesson.id)
   
+  // 查找下一章课程
+  findNextLesson(lesson)
+  
   // 记录学习会话
   LearningAnalyticsService.recordStudySession('current-user', lesson.id, 15, false)
   
   // 更新学习统计
   updateLearningStats()
+  
+  // 平滑滚动到学习笔记区域
+  isScrolling.value = true
+  nextTick(() => {
+    const notesSection = document.querySelector('.learning-notes-section')
+    if (notesSection) {
+      // 计算偏移量，确保笔记区域在视口顶部
+      const offsetTop = notesSection.getBoundingClientRect().top + window.pageYOffset - 100
+      
+      window.scrollTo({
+        top: offsetTop,
+        behavior: 'smooth'
+      })
+      
+      // 滚动完成后重置状态
+      setTimeout(() => {
+        isScrolling.value = false
+      }, 800)
+    } else {
+      isScrolling.value = false
+    }
+  })
 }
 
-const openQuiz = (lesson: Lesson, isReview: boolean) => {
-  quizLesson.value = lesson
-  isReviewMode.value = isReview
-  showQuiz.value = true
+// 查找下一章课程
+const findNextLesson = (currentLesson: Lesson) => {
+  if (!currentPathKey.value) return
+  
+  const path = LearningPathService.getPathById(currentPathKey.value)
+  if (!path) return
+  
+  const currentIndex = path.lessons.findIndex((lesson: Lesson) => lesson.id === currentLesson.id)
+  if (currentIndex !== -1 && currentIndex < path.lessons.length - 1) {
+    nextLesson.value = path.lessons[currentIndex + 1]
+  } else {
+    nextLesson.value = null
+  }
 }
+
+// 完成当前章节并解锁下一章
+const completeCurrentLesson = () => {
+  if (!currentLesson.value || !currentPathKey.value) return
+  
+  // 标记当前章节为已完成
+  LearningPathService.markLessonAsCompleted(currentPathKey.value, currentLesson.value.id)
+  
+  // 如果存在下一章，标记为当前学习章节
+  if (nextLesson.value) {
+    LearningPathService.markLessonAsCurrent(currentPathKey.value, nextLesson.value.id)
+  }
+  
+  // 更新学习统计
+  updateLearningStats()
+  
+  // 显示完成提示
+  alert(`恭喜！您已完成 ${currentLesson.value.title} 的学习！`)
+}
+
+// 获取进度条颜色
+const getProgressColor = (pathId: string) => {
+  const path = learningPaths.value.find((p: LearningPath) => p.id === pathId)
+  if (!path) return 'bg-gray-400'
+  
+  const progress = getPathProgress(pathId)
+  if (progress >= 80) return 'bg-green-500'
+  if (progress >= 50) return 'bg-blue-500'
+  if (progress >= 30) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
+// 计算路径进度
+const getPathProgress = (pathId: string) => {
+  const path = learningPaths.value.find((p: LearningPath) => p.id === pathId)
+  if (!path) return 0
+  
+  const completedLessons = path.lessons.filter((lesson: Lesson) => lesson.completed).length
+  return Math.round((completedLessons / path.totalLessons) * 100)
+}
+
+// 重置学习目标
+const resetGoals = () => {
+  learningGoals.value = {
+    dailyGoal: 30,
+    weeklyGoal: 3,
+    monthlyGoal: 1
+  }
+  alert('学习目标已重置为默认值！')
+}
+
+// 保存学习目标
+const saveLearningGoals = () => {
+  // 这里可以保存到localStorage或后端
+  localStorage.setItem('learning_goals', JSON.stringify(learningGoals.value))
+  showGoalSetting.value = false
+  alert('学习目标已保存！')
+}
+
+// const openQuiz = (lesson: Lesson, isReview: boolean) => {
+//   quizLesson.value = lesson
+//   isReviewMode.value = isReview
+//   showQuiz.value = true
+// }
 
 const closeQuiz = () => {
   showQuiz.value = false
   quizLesson.value = null
 }
 
-const completeLesson = (quizScore?: number) => {
+const completeQuiz = (quizScore?: number) => {
   if (!quizLesson.value || !currentPath.value || isReviewMode.value) {
     closeQuiz()
     return
   }
 
   // 标记课程完成
-  LearningPathService.markLessonComplete('current-user', quizLesson.value.id)
+  LearningPathService.markLessonComplete('current-user', currentPathKey.value || 'beginner', quizLesson.value.id.toString())
   
   // 记录学习会话（包含测验分数）
   LearningAnalyticsService.recordStudySession('current-user', quizLesson.value.id, 20, true, quizScore)

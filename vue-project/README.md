@@ -13,13 +13,37 @@
 npm install
 ```
 
-### 3. 启动项目
+### 3. Supabase 配置
+1. **创建 Supabase 项目**
+   - 访问 [Supabase 官方网站](https://supabase.com/)
+   - 注册并创建一个新的项目
+   - 记录项目的 API 密钥和 URL
+
+2. **配置环境变量**
+   - 在项目根目录创建 `.env` 文件
+   - 填写以下内容：
+   ```env
+   # Supabase 配置
+   VITE_SUPABASE_URL=你的项目 URL
+   VITE_SUPABASE_ANON_KEY=你的 Anon Public API Key
+   VITE_SUPABASE_SERVICE_KEY=你的 Service Role Key
+   
+   # 应用配置
+   VITE_APP_URL=http://localhost:5173
+   VITE_NODE_ENV=development
+   ```
+
+3. **创建数据库表**
+   - 参考 `SUPABASE_SETUP_GUIDE.md` 文件中的数据库 schema 设计
+   - 在 Supabase 控制台中创建相应的表结构
+
+### 4. 启动项目
 依赖安装完成后，运行以下命令启动本地开发服务器：
 ```bash
 npm run dev
 ```
 
-### 4. 访问页面
+### 5. 访问页面
 启动成功后，终端会显示访问地址，通常为：
 [http://localhost:3000](http://localhost:3000)
 在浏览器中打开该地址即可访问平台。
@@ -87,6 +111,10 @@ npm run dev
 - **路由**: Vue Router
 - **状态管理**: Pinia (部分使用 Reactivity API)
 - **图标**: Font Awesome
+- **后端服务**: Supabase
+  - 数据库: PostgreSQL
+  - 认证: Supabase Auth
+  - 存储: Supabase Storage
 
 ## 📁 项目结构
 ```
