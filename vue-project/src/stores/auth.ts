@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, onMounted } from 'vue'
-import { authService } from '../services/mysqlService'
-import { dataSyncService } from '../services/dataSyncService'
-import bcrypt from 'bcryptjs'
+
+// API基础URL配置
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export type SubscriptionTier = 'free' | 'pro' | 'master'
 
@@ -70,48 +70,41 @@ export const useAuthStore = defineStore('auth', () => {
   // Actions
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await authService.login(email)
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
       
-      if (error) {
-        throw new Error('登录失败')
+      const data = await response.json()
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || '登录失败')
       }
       
-      if (data && Array.isArray(data) && data.length > 0) {
-        const userProfile = data[0] as any
-        
-        // 验证密码
-        const passwordMatch = await bcrypt.compare(password, userProfile.password_hash)
-        if (!passwordMatch) {
-          throw new Error('密码错误')
-        }
-        
-        user.value = {
-          id: userProfile.id,
-          username: userProfile.username,
-          email: userProfile.email,
-          display_name: userProfile.display_name || userProfile.username,
-          avatar_url: userProfile.avatar_url,
-          subscription: {
-            tier: userProfile.subscription_tier as SubscriptionTier,
-            expiryDate: userProfile.subscription_expiry
-          },
-          email_verified: userProfile.email_verified,
-          created_at: userProfile.created_at,
-          last_login: userProfile.last_login
-        }
-        isLoggedIn.value = true
-
-        // 保存到本地存储
-        localStorage.setItem('user', JSON.stringify(user.value))
-
-        // 从 MySQL 同步数据
-        await dataSyncService.syncFromMySQL(user.value.id)
-
-        closeAuthModal()
-        return user.value
+      user.value = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        display_name: data.user.display_name || data.user.username,
+        avatar_url: data.user.avatar_url,
+        subscription: {
+          tier: data.user.subscription_tier as SubscriptionTier,
+          expiryDate: data.user.subscription_expiry
+        },
+        email_verified: data.user.email_verified || false,
+        created_at: data.user.created_at || new Date().toISOString(),
+        last_login: data.user.last_login || new Date().toISOString()
       }
-      
-      throw new Error('用户不存在')
+      isLoggedIn.value = true
+
+      // 保存到本地存储
+      localStorage.setItem('user', JSON.stringify(user.value))
+
+      closeAuthModal()
+      return user.value
     } catch (error) {
       console.error('登录失败:', error)
       throw error
@@ -120,48 +113,22 @@ export const useAuthStore = defineStore('auth', () => {
 
   const register = async (username: string, email: string, password: string) => {
     try {
-      // 生成密码哈希
-      const passwordHash = await bcrypt.hash(password, 10)
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, email, password })
+      })
       
-      const { error } = await authService.register(username, email, passwordHash)
+      const data = await response.json()
       
-      if (error) {
-        throw new Error('注册失败')
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || '注册失败')
       }
       
-      // 注册成功后，获取用户信息
-      const { data: userData } = await authService.login(email)
-      
-      if (userData && Array.isArray(userData) && userData.length > 0) {
-        const userProfile = userData[0] as any
-        
-        user.value = {
-          id: userProfile.id,
-          username: userProfile.username,
-          email: userProfile.email,
-          display_name: userProfile.display_name || userProfile.username,
-          avatar_url: userProfile.avatar_url,
-          subscription: {
-            tier: userProfile.subscription_tier as SubscriptionTier,
-            expiryDate: userProfile.subscription_expiry
-          },
-          email_verified: userProfile.email_verified,
-          created_at: userProfile.created_at,
-          last_login: userProfile.last_login
-        }
-        isLoggedIn.value = true
-
-        // 保存到本地存储
-        localStorage.setItem('user', JSON.stringify(user.value))
-
-        // 从 MySQL 同步数据
-        await dataSyncService.syncFromMySQL(user.value.id)
-
-        closeAuthModal()
-        return user.value
-      }
-      
-      throw new Error('注册失败')
+      // 注册成功后自动登录
+      return await login(email, password)
     } catch (error) {
       console.error('注册失败:', error)
       throw error

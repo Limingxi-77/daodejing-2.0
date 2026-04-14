@@ -1,9 +1,12 @@
 // AI服务 - 处理与AI API的交互
 import { ref } from 'vue'
 
+// API基础URL配置
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 // AI配置
 const AI_CONFIG = {
-  baseURL: 'http://localhost:8000', // 后端API地址
+  baseURL: API_BASE_URL, // 后端API地址
   timeout: 30000, // 30秒超时
   maxRetries: 3, // 最大重试次数
 }

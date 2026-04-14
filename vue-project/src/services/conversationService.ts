@@ -1,6 +1,9 @@
 // 对话历史服务 - 处理对话的持久化和搜索
 import { ref } from 'vue'
 
+// API基础URL配置
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 // 对话会话接口
 export interface Conversation {
   id: string
@@ -33,7 +36,7 @@ export interface SearchFilter {
 
 // 服务配置
 const SERVICE_CONFIG = {
-  baseURL: 'http://localhost:8000/api', // 后端API地址
+  baseURL: `${API_BASE_URL}/api`, // 后端API地址
   timeout: 10000,
   maxRetries: 3
 }
