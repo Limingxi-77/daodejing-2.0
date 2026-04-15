@@ -1,5 +1,6 @@
 <template>
   <div id="app" class="min-h-screen bg-background font-chinese relative">
+    11111111111
     <DynamicInkBackground />
     <div class="relative z-10">
       <Navigation />
