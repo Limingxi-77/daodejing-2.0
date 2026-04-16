@@ -1,0 +1,337 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 - 传统文化风格 */
+body {
+  font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+  background-color: theme('colors.background');
+  color: theme('colors.dark');
+  line-height: 1.6;
+  background-image: theme('backgroundImage.traditional-pattern');
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* Zen Mode / 禅模式 */
+html.zen-mode body {
+  background-color: #1c1c1e; /* 深邃黑灰，更护眼 */
+  color: #d1d5db; /* 柔和的灰白文字 */
+  background-image: none;
+}
+
+html.zen-mode .bg-light,
+html.zen-mode .bg-white {
+  background-color: #2c2c2e !important; /* 卡片背景色 */
+  color: #e5e7eb !important;
+  border-color: #3f3f46 !important; /* 边框色 */
+}
+
+/* 覆盖 Primary 颜色为柔和的金/褐色 */
+html.zen-mode .text-primary {
+  color: #d4b483 !important; /* 柔和金色 */
+}
+
+html.zen-mode .bg-primary {
+  background-color: #d4b483 !important;
+  color: #1c1c1e !important;
+}
+
+/* 覆盖 Secondary 颜色 */
+html.zen-mode .text-secondary {
+  color: #a8a29e !important; /* 暖灰色 */
+}
+
+html.zen-mode .border-secondary {
+  border-color: #44403c !important;
+}
+
+/* 文字颜色调整 */
+html.zen-mode .text-dark {
+  color: #f3f4f6 !important;
+}
+
+html.zen-mode .text-gray-600,
+html.zen-mode .text-gray-500 {
+  color: #9ca3af !important;
+}
+
+/* 导航栏 */
+html.zen-mode nav {
+  background-color: #1c1c1e !important;
+  border-bottom: 1px solid #2c2c2e;
+}
+
+html.zen-mode .nav-scrolled {
+  background-color: rgba(28, 28, 30, 0.95) !important;
+}
+
+/* 阴影调整 */
+html.zen-mode .shadow-md,
+html.zen-mode .shadow-lg,
+html.zen-mode .shadow-xl {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  border: 1px solid #3f3f46;
+}
+
+/* 按钮与交互元素 */
+html.zen-mode .btn-primary {
+  background-color: #d4b483 !important;
+  color: #1c1c1e !important;
+}
+
+html.zen-mode .btn-primary:hover {
+  background-color: #c2a370 !important;
+}
+
+/* 特殊元素覆盖 */
+html.zen-mode .bg-primary\/5,
+html.zen-mode .bg-primary\/10 {
+  background-color: rgba(212, 180, 131, 0.1) !important;
+}
+
+html.zen-mode .bg-blue-100,
+html.zen-mode .bg-green-100,
+html.zen-mode .bg-purple-100,
+html.zen-mode .bg-yellow-100,
+html.zen-mode .bg-red-100,
+html.zen-mode .bg-orange-100 {
+  background-color: #3f3f46 !important; /* 统一卡片图标背景 */
+  color: #d4b483 !important; /* 统一图标颜色 */
+}
+
+html.zen-mode .text-blue-600,
+html.zen-mode .text-green-600,
+html.zen-mode .text-purple-600 {
+  color: #d4b483 !important;
+}
+
+/* Retro Mode / 古籍模式 */
+html.retro-mode body {
+  /* 使用仿宣纸背景，如果不是禅模式 */
+  background-color: #f7f1e3;
+  color: #2c2c2c;
+}
+
+html.retro-mode.zen-mode body {
+  background-color: #1c1c1e;
+  color: #d1d5db;
+}
+
+/* 竖排文本通用类 */
+html.retro-mode .vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0.15em;
+  line-height: 2;
+  max-height: 80vh; /* 防止过长 */
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 1rem;
+}
+
+/* 针对古籍模式的特殊字体 */
+html.retro-mode .font-serif,
+html.retro-mode body {
+  font-family: "KaiTi", "STKaiti", "BiauKai", "Noto Serif SC", serif; /* 优先使用楷体 */
+}
+
+/* 古籍卡片样式 */
+html.retro-mode .retro-card {
+  border: 2px solid #8d6e63;
+  padding: 2rem;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiLz4KPC9zdmc+'); /* 简单的噪点纹理 */
+  box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
+}
+
+html.retro-mode.zen-mode .retro-card {
+  border-color: #d4b483;
+  background-image: none;
+  background-color: #2c2c2e;
+}
+
+/* 自定义组件样式 - 传统文化风格 */
+@layer components {
+  /* 按钮样式 */
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary/90 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary/10 text-primary hover:bg-secondary/20 transition-colors;
+  }
+  
+  /* 竹简滚动区域 */
+  .bamboo-scroll {
+    @apply bg-light rounded-lg shadow-lg border border-secondary relative overflow-hidden;
+  }
+  
+  /* 竹简卡片组件 */
+  .bamboo-card {
+    @apply bg-light rounded shadow-md relative overflow-hidden p-6 mb-6;
+  }
+  
+  .bamboo-card::before {
+    content: "";
+    @apply absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-secondary via-light to-secondary rounded-t-lg;
+  }
+  
+  .bamboo-card::after {
+    content: "";
+    @apply absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-secondary via-light to-secondary rounded-b-lg;
+  }
+  
+  /* 聊天框样式 */
+  .chat-input {
+    @apply w-full px-5 py-4 rounded-full border-2 border-secondary focus:outline-none focus:border-accent transition-all text-lg;
+  }
+  
+  .chat-message {
+    @apply flex items-start mb-4;
+  }
+  
+  .chat-message.ai {
+    @apply flex-row;
+  }
+  
+  .chat-message.user {
+    @apply flex-row-reverse;
+  }
+  
+  .chat-avatar {
+    @apply w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center mx-3;
+  }
+  
+  .chat-content {
+    @apply bg-light px-4 py-3 rounded-lg max-w-md shadow-sm;
+  }
+  
+  /* 墨水滴落效果 */
+  .ink-splash {
+    @apply relative overflow-hidden;
+  }
+  
+  .ink-splash::after {
+    content: '';
+    @apply absolute top-1/2 left-1/2 w-[150%] h-[150%] bg-gradient-to-br from-white/30 to-transparent transform -translate-x-1/2 -translate-y-1/2 scale-0 transition-transform duration-300 ease-out pointer-events-none;
+  }
+  
+  .ink-splash:active::after {
+    @apply scale-100;
+  }
+  
+  /* 导航栏滚动效果 */
+  .nav-scrolled {
+    @apply bg-light/95 backdrop-blur-sm shadow-lg;
+  }
+  
+  /* 移动端菜单 */
+  .mobile-menu {
+    @apply bg-light border-t border-secondary;
+  }
+  
+  /* 章节选择按钮 */
+  .chapter-select {
+    @apply px-4 py-2 bg-light border border-secondary rounded-md hover:bg-secondary hover:text-white transition-colors;
+  }
+  
+  /* 快捷问题按钮 */
+  .quick-question {
+    @apply px-3 py-1 bg-secondary/10 text-primary rounded-full text-sm hover:bg-secondary/20 transition-colors;
+  }
+  
+  /* 章节卡片组件 */
+  .chapter-card {
+    @apply bg-light rounded shadow-sm p-6 mb-4 transition-all duration-300 border-l-4 border-primary;
+  }
+  
+  .chapter-card:hover {
+    @apply -translate-y-1 shadow-md;
+  }
+  
+  .chapter-number {
+    @apply inline-block bg-primary text-white w-8 h-8 leading-8 text-center rounded-full mr-3 font-bold;
+  }
+  
+  /* 模态框动画 */
+  .modal-fade {
+    animation: fadeIn 0.5s ease forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 涟漪动画 */
+  .animate-ripple {
+    animation: ripple 0.6s linear;
+  }
+
+  @keyframes ripple {
+    0% { transform: scale(0); opacity: 0.5; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  /* 缓慢脉冲动画 */
+  .animate-ping-slow {
+    animation: ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+/* 滚动动画效果 */
+.scroll-reveal {
+    @apply opacity-0 translate-y-8 transition-all duration-500 ease-out;
+  }
+  
+  .scroll-reveal.revealed {
+    @apply opacity-100 translate-y-0;
+  }
+  
+  /* 悬停效果 */
+  .hover-scale {
+    @apply transition-transform duration-300 ease-in-out;
+  }
+  
+  .hover-scale:hover {
+    @apply scale-105;
+  }
+
+.hover-float {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.hover-float:hover {
+  @apply -translate-y-1 shadow-lg;
+}
+
+/* 加载动画 */
+.loading-dots {
+  @apply flex space-x-1;
+}
+
+.loading-dots span {
+  @apply w-2 h-2 bg-primary rounded-full animate-bounce;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Hero区域居中样式 */
+.hero-content {
+  @apply flex justify-center items-center w-full max-w-6xl mx-auto;
+}
+
+.hero-text-container {
+  @apply text-center;
+}
+
+@media (min-width: 768px) {
+  .hero-text-container {
+    @apply text-left;
+  }
+}
