@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 export type SubscriptionTier = 'free' | 'pro' | 'master'
 
@@ -25,7 +25,6 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthModalOpen = ref(false)
   const showPricingModal = ref(false)
   const authMode = ref<'login' | 'register'>('login')
-  const token = ref<string | null>(null)
   
   // Usage tracking
   const dailyUsage = ref({
@@ -33,27 +32,22 @@ export const useAuthStore = defineStore('auth', () => {
     date: new Date().toDateString()
   })
 
-  // API配置
-  const API_BASE_URL = 'http://localhost:8000'
-
   // Initialize from localStorage
-  const initAuth = () => {
-    const storedUser = localStorage.getItem('user')
-    const storedToken = localStorage.getItem('token')
-    
-    if (storedUser && storedToken) {
-      try {
-        user.value = JSON.parse(storedUser)
-        token.value = storedToken
-        isLoggedIn.value = true
-        
-        // 验证token是否有效
-        verifyToken()
-      } catch (e) {
-        console.error('Failed to parse user from localStorage', e)
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
+  const initAuth = async () => {
+    try {
+      // 从本地存储恢复
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        try {
+          user.value = JSON.parse(storedUser)
+          isLoggedIn.value = true
+        } catch (e) {
+          console.error('Failed to parse user from localStorage', e)
+          localStorage.removeItem('user')
+        }
       }
+    } catch (error) {
+      console.error('初始化认证失败:', error)
     }
     
     // Init usage
@@ -70,88 +64,89 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // API请求函数
-  const apiRequest = async (url: string, options: RequestInit = {}) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token.value ? { 'Authorization': `Bearer ${token.value}` } : {}),
-      ...options.headers
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        ...options,
-        headers
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: '请求失败' }))
-        throw new Error(errorData.error || `HTTP ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('API请求错误:', error)
-      throw error
-    }
-  }
-
-  // 验证token
-  const verifyToken = async () => {
-    try {
-      await apiRequest('/api/auth/profile')
-    } catch (error) {
-      // Token无效，清除本地存储
-      logout()
-    }
-  }
-
   // Actions
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiRequest('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password })
-      })
-
-      token.value = response.token
-      user.value = response.user
+      // 从localStorage获取用户列表
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      const foundUser = users.find((u: any) => u.email === email)
+      
+      if (!foundUser) {
+        throw new Error('用户不存在')
+      }
+      
+      // 验证密码
+      if (foundUser.password !== password) {
+        throw new Error('密码错误')
+      }
+      
+      // 设置当前用户
+      user.value = {
+        id: foundUser.id,
+        username: foundUser.username,
+        email: foundUser.email,
+        display_name: foundUser.display_name || foundUser.username,
+        avatar_url: foundUser.avatar_url,
+        subscription: {
+          tier: foundUser.subscription_tier || 'free',
+          expiryDate: foundUser.subscription_expiry
+        },
+        email_verified: foundUser.email_verified || true,
+        created_at: foundUser.created_at,
+        last_login: new Date().toISOString()
+      }
       isLoggedIn.value = true
 
       // 保存到本地存储
-      localStorage.setItem('user', JSON.stringify(response.user))
-      localStorage.setItem('token', response.token)
+      localStorage.setItem('user', JSON.stringify(user.value))
 
       closeAuthModal()
-      return response
+      return user.value
     } catch (error) {
       console.error('登录失败:', error)
       throw error
     }
   }
 
-  const register = async (username: string, email: string, password: string, displayName?: string) => {
+  const register = async (username: string, email: string, password: string) => {
     try {
-      const response = await apiRequest('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          username, 
-          email, 
-          password,
-          display_name: displayName || username 
-        })
-      })
-
-      token.value = response.token
-      user.value = response.user
-      isLoggedIn.value = true
-
-      // 保存到本地存储
-      localStorage.setItem('user', JSON.stringify(response.user))
-      localStorage.setItem('token', response.token)
-
-      closeAuthModal()
-      return response
+      // 验证输入
+      if (!username || !email || !password) {
+        throw new Error('请填写所有必填字段')
+      }
+      
+      if (password.length < 8) {
+        throw new Error('密码长度至少8位')
+      }
+      
+      // 从localStorage获取用户列表
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      
+      // 检查用户是否已存在
+      const existingUser = users.find((u: any) => u.email === email || u.username === username)
+      if (existingUser) {
+        throw new Error('邮箱或用户名已存在')
+      }
+      
+      // 创建新用户
+      const newUser = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        username,
+        email,
+        password, // 注意：实际项目中应该加密存储
+        display_name: username,
+        subscription_tier: 'free',
+        email_verified: true,
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString()
+      }
+      
+      // 保存到用户列表
+      users.push(newUser)
+      localStorage.setItem('users', JSON.stringify(users))
+      
+      // 注册成功后自动登录
+      return await login(email, password)
     } catch (error) {
       console.error('注册失败:', error)
       throw error
@@ -192,19 +187,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = async () => {
     try {
-      // 调用后端登出API
-      await apiRequest('/api/auth/logout', {
-        method: 'POST'
-      })
-    } catch (error) {
-      console.error('登出API调用失败:', error)
-    } finally {
       // 清除本地状态
       user.value = null
       isLoggedIn.value = false
-      token.value = null
       localStorage.removeItem('user')
-      localStorage.removeItem('token')
+    } catch (error) {
+      console.error('登出失败:', error)
     }
   }
 
@@ -216,6 +204,11 @@ export const useAuthStore = defineStore('auth', () => {
   const closeAuthModal = () => {
     isAuthModalOpen.value = false
   }
+
+  // 组件挂载时初始化认证
+  onMounted(() => {
+    initAuth()
+  })
 
   return {
     user,

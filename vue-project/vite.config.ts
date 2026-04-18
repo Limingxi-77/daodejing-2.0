@@ -51,6 +51,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true
+      },
+      '/dashscope-api': {
+        target: 'https://dashscope.aliyuncs.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/dashscope-api/, ''),
+        headers: {
+          'Authorization': `Bearer ${process.env.VITE_COSYVOICE_API_KEY || ''}`
+        }
       }
     }
   }

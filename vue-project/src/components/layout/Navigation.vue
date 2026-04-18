@@ -70,8 +70,8 @@
         </button>
 
         <div v-if="!isLoggedIn" class="flex space-x-4">
-          <button @click="openAuthModal('login')" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
-          <button @click="openAuthModal('register')" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+          <router-link to="/login" class="px-4 py-2 btn-secondary rounded-md ink-splash">登录</router-link>
+          <router-link to="/register" class="px-4 py-2 btn-primary rounded-md ink-splash">注册</router-link>
         </div>
 
         <!-- 用户信息（登录后显示） -->
@@ -111,8 +111,8 @@
         </router-link>
         
         <div v-if="!isLoggedIn" class="flex space-x-4 pt-2">
-          <button @click="openAuthModal('login')" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash">登录</button>
-          <button @click="openAuthModal('register')" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash">注册</button>
+          <router-link to="/login" class="flex-1 px-4 py-2 btn-secondary rounded-md ink-splash" @click="closeMobileMenu">登录</router-link>
+          <router-link to="/register" class="flex-1 px-4 py-2 btn-primary rounded-md ink-splash" @click="closeMobileMenu">注册</router-link>
         </div>
 
         <!-- 移动端设置区域 -->
@@ -185,7 +185,7 @@ const isRetroMode = ref(false)
 
 const authStore = useAuthStore()
 const { isLoggedIn, user } = storeToRefs(authStore)
-const { openAuthModal, logout } = authStore
+const { logout } = authStore
 
 const cultivationStore = useCultivationStore()
 const { currentRealm, progress } = storeToRefs(cultivationStore)

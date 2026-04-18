@@ -9,6 +9,51 @@
         </p>
       </div>
 
+      <!-- 学习统计 -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-primary mb-6">学习统计</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-primary mb-2">{{ Math.round(learningStats.totalStudyTime / 60) }}</div>
+            <div class="text-gray-600">学习小时</div>
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-green-500 mb-2">{{ learningStats.completedLessons }}</div>
+            <div class="text-gray-600">完成课程</div>
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-blue-500 mb-2">{{ learningStats.currentStreak }}</div>
+            <div class="text-gray-600">连续学习</div>
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-orange-500 mb-2">{{ learningStats.averageQuizScore }}%</div>
+            <div class="text-gray-600">平均分数</div>
+          </div>
+        </div>
+        
+        <!-- 学习进度可视化 -->
+         <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+           <h3 class="text-lg font-bold text-dark mb-4">学习进度</h3>
+           <div class="space-y-4">
+             <div v-for="path in learningPaths" :key="path.id" class="flex items-center">
+               <div class="w-32 text-sm font-medium text-gray-700">{{ path.name }}</div>
+               <div class="flex-1 ml-4">
+                 <div class="w-full bg-gray-200 rounded-full h-4">
+                   <div 
+                     class="h-4 rounded-full transition-all duration-500" 
+                     :class="getProgressColor(path.id)"
+                     :style="{ width: getPathProgress(path.id) + '%' }"
+                   ></div>
+                 </div>
+               </div>
+               <div class="w-16 text-right text-sm font-medium text-gray-700">
+                 {{ getPathProgress(path.id) }}%
+               </div>
+             </div>
+           </div>
+         </div>
+      </section>
+
       <!-- 学习路径选择 -->
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-primary mb-6">选择您的学习路径</h2>
@@ -105,7 +150,7 @@
         </div>
       </section>
 
-      <!-- 亲子绘本专区 (New Featured Section) -->
+      <!-- 亲子绘本专区 -->
       <section class="mb-12 animate-slide-up" style="animation-delay: 0.1s;">
         <h2 class="text-2xl font-bold text-primary mb-6 flex items-center">
           <i class="fas fa-child mr-2 text-blue-500"></i> 亲子启蒙 & 趣味阅读
@@ -158,7 +203,7 @@
         </div>
       </section>
 
-      <!-- 知识图谱 (新增) -->
+      <!-- 知识图谱 -->
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-primary mb-6">核心概念图谱</h2>
         <div class="bg-white rounded-lg shadow-md p-1">
@@ -220,17 +265,23 @@
               <div class="md:ml-4">
                 <button 
                   v-if="lesson.completed"
-                  @click="openQuiz(lesson, true)"
+                  @click="openLessonDetail(lesson)"
                   class="px-4 py-1.5 rounded-md border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors w-full md:w-auto"
                 >
-                  复习
+                  查看详情
                 </button>
                 <button 
                   v-else-if="lesson.current"
-                  @click="openQuiz(lesson, false)"
-                  class="px-4 py-1.5 rounded-md bg-primary text-white text-sm hover:bg-opacity-90 transition-colors shadow-md w-full md:w-auto"
+                  @click="openLessonDetail(lesson)"
+                  :disabled="isScrolling"
+                  :class="['px-4 py-1.5 rounded-md text-sm transition-colors shadow-md w-full md:w-auto', 
+                    isScrolling ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-opacity-90']"
                 >
-                  继续学习
+                  <span v-if="isScrolling" class="flex items-center">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>
+                    加载中...
+                  </span>
+                  <span v-else>开始学习</span>
                 </button>
                 <button 
                   v-else
@@ -239,6 +290,158 @@
                 >
                   <i class="fas fa-lock mr-1"></i>未解锁
                 </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 完成本章和继续学习 -->
+          <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+              <div class="mb-4 md:mb-0">
+                <h3 class="text-lg font-bold text-dark">完成本章学习</h3>
+                <p class="text-gray-600">标记本章为已完成，解锁下一章内容</p>
+              </div>
+              <div class="flex gap-3">
+                <button 
+                  v-if="!currentLesson?.completed"
+                  @click="completeCurrentLesson"
+                  class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md flex items-center"
+                >
+                  <i class="fas fa-check mr-2"></i>
+                  完成本章
+                </button>
+                <button 
+                  v-if="nextLesson"
+                  @click="openLessonDetail(nextLesson)"
+                  class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-md flex items-center"
+                >
+                  <i class="fas fa-arrow-right mr-2"></i>
+                  继续学习下一章
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 课程内容展示区域 -->
+      <section v-if="currentLesson" class="mb-12 learning-notes-section">
+        <h2 class="text-2xl font-bold text-primary mb-6" :class="{ 'animate-pulse': isScrolling }">课程内容</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="mb-6">
+            <h3 class="text-xl font-bold text-dark mb-6">{{ currentLesson.title }}</h3>
+            
+            <!-- 内容标签页 -->
+            <div class="mb-4 border-b">
+              <div class="flex space-x-4">
+                <button 
+                  v-for="tab in contentTabs" 
+                  :key="tab.id"
+                  :class="['px-4 py-2 text-sm font-medium rounded-t-lg transition-colors', 
+                    activeTab === tab.id ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700']"
+                  @click="activeTab = tab.id"
+                >
+                  {{ tab.name }}
+                </button>
+              </div>
+            </div>
+            
+            <!-- 标签页内容 -->
+            <div class="bg-gray-50 rounded-lg p-6 transition-all duration-300">
+              <!-- 原文 -->
+              <div v-if="activeTab === 'original'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">原文</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed whitespace-pre-line">{{ currentLesson.originalText }}</p>
+                </div>
+              </div>
+              
+              <!-- 注释 -->
+              <div v-if="activeTab === 'annotation'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">注释</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed">{{ currentLesson.annotation }}</p>
+                </div>
+              </div>
+              
+              <!-- 解析 -->
+              <div v-if="activeTab === 'explanation'" class="space-y-4">
+                <h4 class="text-lg font-medium text-dark mb-2">解析</h4>
+                <div class="prose max-w-none">
+                  <p class="text-dark leading-relaxed">{{ currentLesson.explanation }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 笔记编辑器 -->
+          <div class="border-t pt-6">
+            <h4 class="font-medium text-dark mb-4">记录学习笔记</h4>
+            <textarea 
+              v-model="newNoteContent"
+              class="w-full p-3 border rounded-lg mb-3"
+              rows="4"
+              placeholder="记录您的感悟和理解..."
+            ></textarea>
+            <div class="flex justify-between items-center">
+              <div class="flex gap-2">
+                <input 
+                  v-model="newNoteTags"
+                  type="text"
+                  class="px-3 py-1 border rounded text-sm"
+                  placeholder="添加标签（用逗号分隔）"
+                >
+                <label class="flex items-center text-sm text-gray-600">
+                  <input v-model="newNoteIsPublic" type="checkbox" class="mr-2">
+                  公开分享
+                </label>
+              </div>
+              <button 
+                @click="saveNote"
+                class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                :disabled="!newNoteContent.trim()"
+              >
+                保存笔记
+              </button>
+            </div>
+          </div>
+
+          <!-- 已有笔记列表 -->
+          <div v-if="lessonNotes.length > 0" class="mt-6">
+            <h4 class="font-medium text-dark mb-4">已有笔记</h4>
+            <div class="space-y-4">
+              <div 
+                v-for="note in lessonNotes" 
+                :key="note.id"
+                class="bg-gray-50 p-4 rounded-lg border"
+              >
+                <div class="flex justify-between items-start mb-2">
+                  <span class="text-sm text-gray-500">{{ formatDate(note.createdAt) }}</span>
+                  <div class="flex gap-2">
+                    <button 
+                      @click="editNote(note)"
+                      class="text-blue-500 hover:text-blue-700 text-sm"
+                    >
+                      编辑
+                    </button>
+                    <button 
+                      @click="deleteNote(note.id)"
+                      class="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+                <p class="text-dark">{{ note.content }}</p>
+                <div v-if="note.tags.length > 0" class="mt-2 flex gap-1">
+                  <span 
+                    v-for="tag in note.tags" 
+                    :key="tag"
+                    class="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded"
+                  >
+                    {{ tag }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -259,6 +462,118 @@
           </div>
         </div>
       </section>
+
+      <!-- 学习目标设置 -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-primary mb-6">学习目标</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <i class="fas fa-flag text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.dailyGoal }}</h3>
+              <p class="text-sm text-gray-600">每日目标(分钟)</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                <i class="fas fa-calendar text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.weeklyGoal }}</h3>
+              <p class="text-sm text-gray-600">每周目标(章节)</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                <i class="fas fa-trophy text-2xl"></i>
+              </div>
+              <h3 class="font-bold text-lg">{{ learningGoals.monthlyGoal }}</h3>
+              <p class="text-sm text-gray-600">月度目标(路径)</p>
+            </div>
+          </div>
+          
+          <div class="flex gap-3">
+            <button 
+              @click="showGoalSetting = true"
+              class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+            >
+              <i class="fas fa-cog mr-2"></i>设置目标
+            </button>
+            <button 
+              @click="resetGoals"
+              class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+            >
+              <i class="fas fa-redo mr-2"></i>重置目标
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 目标设置模态框 -->
+      <div v-if="showGoalSetting" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 md:p-8 max-w-md w-full relative shadow-xl">
+          <button 
+            @click="showGoalSetting = false" 
+            class="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+          
+          <h3 class="text-xl font-bold text-primary mb-6">设置学习目标</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">每日学习时间(分钟)</label>
+              <input 
+                v-model="learningGoals.dailyGoal"
+                type="number" 
+                min="10" 
+                max="240"
+                class="w-full p-2 border rounded-lg"
+                placeholder="30"
+              >
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">每周完成章节数</label>
+              <input 
+                v-model="learningGoals.weeklyGoal"
+                type="number" 
+                min="1" 
+                max="10"
+                class="w-full p-2 border rounded-lg"
+                placeholder="3"
+              >
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">月度完成路径数</label>
+              <input 
+                v-model="learningGoals.monthlyGoal"
+                type="number" 
+                min="1" 
+                max="3"
+                class="w-full p-2 border rounded-lg"
+                placeholder="1"
+              >
+            </div>
+          </div>
+          
+          <div class="flex gap-3 mt-6">
+            <button 
+              @click="saveLearningGoals"
+              class="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+            >
+              保存目标
+            </button>
+            <button 
+              @click="showGoalSetting = false"
+              class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- 学习建议 -->
       <section class="mb-12">
@@ -338,10 +653,10 @@
     <QuizModal 
       v-if="showQuiz" 
       :title="quizLesson?.title || ''"
-      :question="quizQuestion"
+      :questions="quizQuestions"
       :isReview="isReviewMode"
       @close="closeQuiz"
-      @complete="completeLesson"
+      @complete="completeQuiz"
     />
 
     <!-- 随机奇遇模态框 -->
@@ -387,35 +702,60 @@ import RandomEventModal from '@/components/learning/RandomEventModal.vue'
 import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 import { useCultivationStore } from '@/stores/cultivation'
 import { storeToRefs } from 'pinia'
+import { LearningPathService, type Lesson, type LearningPath, Difficulty } from '@/services/learningPathService'
+import { NoteService, type LearningNote } from '@/services/noteService'
+import { LearningAnalyticsService, type LearningStats } from '@/services/learningAnalyticsService'
 
 // 类型定义
 type PathKey = 'beginner' | 'intermediate' | 'advanced'
-type Difficulty = 'easy' | 'medium' | 'hard'
-
-interface Lesson {
-  id: number
-  title: string
-  difficulty: Difficulty
-  duration: string
-  completed: boolean
-  current: boolean
-}
-
-interface PathData {
-  name: string
-  description: string
-  lessons: Lesson[]
-}
-
-interface LearningPaths {
-  [key: string]: PathData
-}
+// 使用导入的Difficulty类型，删除本地定义
+// type Difficulty = 'easy' | 'medium' | 'hard'
 
 // 状态
 const currentPathKey = ref<PathKey | null>(null)
+const currentLesson = ref<Lesson | null>(null)
 const showQuiz = ref(false)
 const quizLesson = ref<Lesson | null>(null)
 const isReviewMode = ref(false)
+const isScrolling = ref(false) // 滚动状态
+const nextLesson = ref<Lesson | null>(null) // 下一章课程
+const learningPaths = ref<LearningPath[]>(LearningPathService.getAllPaths()) // 所有学习路径
+
+// 课程内容标签页
+const activeTab = ref('original')
+const contentTabs = ref([
+  { id: 'original', name: '原文' },
+  { id: 'annotation', name: '注释' },
+  { id: 'explanation', name: '解析' }
+])
+
+// 笔记相关状态
+const newNoteContent = ref('')
+const newNoteTags = ref('')
+const newNoteIsPublic = ref(false)
+const lessonNotes = ref<LearningNote[]>([])
+
+// 学习目标相关状态
+const showGoalSetting = ref(false)
+const learningGoals = ref({
+  dailyGoal: 30,
+  weeklyGoal: 3,
+  monthlyGoal: 1
+})
+
+// 学习统计
+const learningStats = ref<LearningStats>({
+  userId: 'current-user',
+  totalStudyTime: 0,
+  completedLessons: 0,
+  totalQuizzes: 0,
+  averageQuizScore: 0,
+  currentStreak: 0,
+  longestStreak: 0,
+  lastStudyDate: '',
+  favoriteChapter: '',
+  learningGoals: []
+})
 
 // 随机奇遇状态
 const showEventModal = ref(false)
@@ -429,175 +769,61 @@ const cultivationStore = useCultivationStore()
 const { addExp } = cultivationStore
 const { showUpgradeModal, currentRealm } = storeToRefs(cultivationStore)
 
-// 初始数据（实际应用中可能从后端获取）
-const initialPaths: LearningPaths = {
-  beginner: {
-    name: '初学者路径',
-    description: '适合刚接触《道德经》的学习者，从基础概念开始，循序渐进地理解老子思想的核心',
-    lessons: [
-      { id: 1, title: '第一章：道可道', difficulty: 'easy', duration: '15分钟', completed: false, current: true },
-      { id: 2, title: '第二章：天下皆知', difficulty: 'easy', duration: '15分钟', completed: false, current: false },
-      { id: 3, title: '第三章：不尚贤', difficulty: 'easy', duration: '15分钟', completed: false, current: false },
-      { id: 4, title: '第四章：道冲而用之', difficulty: 'easy', duration: '15分钟', completed: false, current: false },
-      { id: 5, title: '第五章：天地不仁', difficulty: 'easy', duration: '15分钟', completed: false, current: false },
-      { id: 6, title: '第六章：谷神不死', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 7, title: '第七章：天长地久', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 8, title: '第八章：上善若水', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 9, title: '第九章：持而盈之', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 10, title: '第十章：载营魄', difficulty: 'hard', duration: '25分钟', completed: false, current: false },
-      { id: 11, title: '第十一章：三十辐', difficulty: 'hard', duration: '25分钟', completed: false, current: false },
-      { id: 12, title: '第十二章：五色令人目盲', difficulty: 'hard', duration: '25分钟', completed: false, current: false },
-      { id: 13, title: '第十三章：宠辱若惊', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 14, title: '第十四章：视之不见', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 15, title: '第十五章：古之善为士者', difficulty: 'hard', duration: '25分钟', completed: false, current: false },
-      { id: 16, title: '第十六章：致虚极', difficulty: 'hard', duration: '25分钟', completed: false, current: false },
-      { id: 17, title: '第十七章：太上', difficulty: 'medium', duration: '20分钟', completed: false, current: false },
-      { id: 18, title: '第十八章：大道废', difficulty: 'easy', duration: '15分钟', completed: false, current: false }
-    ]
-  },
-  intermediate: {
-    name: '进阶者路径',
-    description: '适合有一定基础的学习者，深入探讨《道德经》的哲学思想和内在逻辑',
-    lessons: [
-      { id: 19, title: '第十九章：绝圣弃智', difficulty: 'medium', duration: '30分钟', completed: false, current: true },
-      { id: 20, title: '第二十章：绝学无忧', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 21, title: '第二十一章：孔德之容', difficulty: 'hard', duration: '35分钟', completed: false, current: false },
-      { id: 22, title: '第二十二章：曲则全', difficulty: 'easy', duration: '25分钟', completed: false, current: false },
-      { id: 23, title: '第二十三章：希言自然', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 24, title: '第二十四章：企者不立', difficulty: 'easy', duration: '25分钟', completed: false, current: false },
-      { id: 25, title: '第二十五章：有物混成', difficulty: 'hard', duration: '40分钟', completed: false, current: false },
-      { id: 26, title: '第二十六章：重为轻根', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 27, title: '第二十七章：善行无辙迹', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 28, title: '第二十八章：知其雄', difficulty: 'hard', duration: '35分钟', completed: false, current: false },
-      { id: 29, title: '第二十九章：将欲取天下', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 30, title: '第三十章：以道佐人主', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 31, title: '第三十一章：夫佳兵者', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 32, title: '第三十二章：道常无名', difficulty: 'hard', duration: '35分钟', completed: false, current: false },
-      { id: 33, title: '第三十三章：知人者智', difficulty: 'easy', duration: '25分钟', completed: false, current: false },
-      { id: 34, title: '第三十四章：大道泛兮', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 35, title: '第三十五章：执大象', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 36, title: '第三十六章：将欲翕之', difficulty: 'hard', duration: '35分钟', completed: false, current: false },
-      { id: 37, title: '第三十七章：道常无为', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 38, title: '第三十八章：上德不德', difficulty: 'hard', duration: '40分钟', completed: false, current: false },
-      { id: 39, title: '第三十九章：昔之得一者', difficulty: 'hard', duration: '40分钟', completed: false, current: false },
-      { id: 40, title: '第四十章：反者道之动', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 41, title: '第四十一章：上士闻道', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 42, title: '第四十二章：道生一', difficulty: 'hard', duration: '40分钟', completed: false, current: false },
-      { id: 43, title: '第四十三章：天下之至柔', difficulty: 'medium', duration: '30分钟', completed: false, current: false },
-      { id: 44, title: '第四十四章：名与身孰亲', difficulty: 'easy', duration: '25分钟', completed: false, current: false },
-      { id: 45, title: '第四十五章：大成若缺', difficulty: 'medium', duration: '30分钟', completed: false, current: false }
-    ]
-  },
-  advanced: {
-    name: '研究者路径',
-    description: '适合深度研究者，全面解析《道德经》的文本、历史背景和学术争议',
-    lessons: [
-      { id: 46, title: '第四十六章：天下有道', difficulty: 'medium', duration: '45分钟', completed: false, current: true },
-      { id: 47, title: '第四十七章：不出户', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 48, title: '第四十八章：为学日益', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 49, title: '第四十九章：圣人无常心', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 50, title: '第五十章：出生入死', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 51, title: '第五十一章：道生之', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 52, title: '第五十二章：天下有始', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 53, title: '第五十三章：使我介然有知', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 54, title: '第五十四章：善建者不拔', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 55, title: '第五十五章：含德之厚', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 56, title: '第五十六章：知者不言', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 57, title: '第五十七章：以正治国', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 58, title: '第五十八章：其政闷闷', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 59, title: '第五十九章：治人事天', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 60, title: '第六十章：治大国', difficulty: 'easy', duration: '40分钟', completed: false, current: false },
-      { id: 61, title: '第六十一章：大国者下流', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 62, title: '第六十二章：道者万物之奥', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 63, title: '第六十三章：为无为', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 64, title: '第六十四章：其安易持', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 65, title: '第六十五章：古之善为道者', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 66, title: '第六十六章：江海所以能为百谷王者', difficulty: 'easy', duration: '40分钟', completed: false, current: false },
-      { id: 67, title: '第六十七章：天下皆谓我道大', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 68, title: '第六十八章：善为士者', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 69, title: '第六十九章：用兵有言', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 70, title: '第七十章：吾言甚易知', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 71, title: '第七十一章：知不知', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 72, title: '第七十二章：民不畏威', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 73, title: '第七十三章：勇于敢', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 74, title: '第七十四章：民不畏死', difficulty: 'hard', duration: '50分钟', completed: false, current: false },
-      { id: 75, title: '第七十五章：民之饥', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 76, title: '第七十六章：人之生也柔弱', difficulty: 'easy', duration: '40分钟', completed: false, current: false },
-      { id: 77, title: '第七十七章：天之道', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 78, title: '第七十八章：天下莫柔弱于水', difficulty: 'easy', duration: '40分钟', completed: false, current: false },
-      { id: 79, title: '第七十九章：和大怨', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 80, title: '第八十章：小国寡民', difficulty: 'medium', duration: '45分钟', completed: false, current: false },
-      { id: 81, title: '第八十一章：信言不美', difficulty: 'hard', duration: '50分钟', completed: false, current: false }
-    ]
-  }
-}
 
-// 题目数据
-const lessonQuestions: Record<number, any> = {
-  1: {
-    question: '"道可道，非常道" 是什么意思？',
-    options: [
-      { id: 'A', text: '道是可以说出来的' },
-      { id: 'B', text: '道是无法完全用语言表达的永恒真理' },
-      { id: 'C', text: '道是一种特殊的道路' },
-      { id: 'D', text: '道是常识' }
-    ],
-    correctAnswer: 'B',
-    explanation: '老子认为"道"是宇宙的本源，超越了语言的描述范围。一旦用语言说出来，就不是那个永恒不变的"道"了。'
-  },
-  2: {
-    question: '"天下皆知美之为美，斯恶已" 强调了什么概念？',
-    options: [
-      { id: 'A', text: '美丑是绝对的' },
-      { id: 'B', text: '对立统一与相互依存' },
-      { id: 'C', text: '大家都喜欢美' },
-      { id: 'D', text: '恶是美的反面' }
-    ],
-    correctAnswer: 'B',
-    explanation: '老子强调美与丑、善与恶都是相对存在的，没有恶就没有美，它们是相互依存、相互转化的。'
-  },
-  3: {
-    question: '"不尚贤，使民不争" 提倡什么样的治理方式？',
-    options: [
-      { id: 'A', text: '不推崇贤能，减少争斗' },
-      { id: 'B', text: '打压贤能之人' },
-      { id: 'C', text: '奖励争斗' },
-      { id: 'D', text: '选拔贤能' }
-    ],
-    correctAnswer: 'A',
-    explanation: '老子认为过度推崇贤能会导致人们为了名利而争斗，不如顺其自然，让百姓安居乐业。'
-  },
-  // 为了简化代码，这里只展示部分题目，实际项目中应包含所有题目
-  // ... 其他题目数据按需添加
-}
-
-// 响应式数据
-const paths = ref<LearningPaths>(initialPaths)
 
 // 计算属性
-const beginnerProgress = computed(() => calculateProgress('beginner'))
-const intermediateProgress = computed(() => calculateProgress('intermediate'))
-const advancedProgress = computed(() => calculateProgress('advanced'))
+const beginnerProgress = computed(() => {
+  const path = learningPaths.value.find(p => p.id === 'beginner')
+  return path ? path.progress : 0
+})
 
-const currentPath = computed(() => currentPathKey.value ? paths.value[currentPathKey.value] : null)
-const currentPathTotal = computed(() => currentPath.value?.lessons.length || 0)
-const currentPathCompleted = computed(() => currentPath.value?.lessons.filter(l => l.completed).length || 0)
+const intermediateProgress = computed(() => {
+  const path = learningPaths.value.find(p => p.id === 'intermediate')
+  return path ? path.progress : 0
+})
+
+const advancedProgress = computed(() => {
+  const path = learningPaths.value.find(p => p.id === 'advanced')
+  return path ? path.progress : 0
+})
+
+const currentPath = computed(() => {
+  if (!currentPathKey.value) return null
+  return learningPaths.value.find(p => p.id === currentPathKey.value)
+})
+
+const currentPathTotal = computed(() => currentPath.value?.totalLessons || 0)
+const currentPathCompleted = computed(() => currentPath.value?.completedLessons || 0)
 const currentPathProgress = computed(() => currentPathTotal.value ? Math.round((currentPathCompleted.value / currentPathTotal.value) * 100) : 0)
 
-const quizQuestion = computed(() => {
-  if (!quizLesson.value) return null
-  // 如果没有对应题目，返回默认题目（防止报错）
-  return lessonQuestions[quizLesson.value.id] || {
-    question: `关于 ${quizLesson.value.title} 的核心思想是？`,
-    options: [
-      { id: 'A', text: '顺应自然' },
-      { id: 'B', text: '人定胜天' },
-      { id: 'C', text: '积极进取' },
-      { id: 'D', text: '放弃一切' }
-    ],
-    correctAnswer: 'A',
-    explanation: '《道德经》的核心思想之一就是"道法自然"，强调顺应自然规律。'
+const quizQuestions = computed(() => {
+  if (!quizLesson.value) return [{
+    id: 'default',
+    question: '请选择一个问题',
+    options: [{ id: 'a', text: '选项A' }],
+    correctAnswer: 'a',
+    explanation: '默认解释'
+  }]
+  
+  // 使用课程中的测验题目
+  const lesson = quizLesson.value
+  if (lesson.quiz && lesson.quiz.length > 0) {
+    return lesson.quiz
   }
+  
+  // 如果没有题目，返回默认题目
+  return [{
+    id: 'default',
+    question: `关于 ${lesson.title} 的核心思想是？`,
+    options: [
+      { id: 'a', text: '顺应自然' },
+      { id: 'b', text: '人定胜天' },
+      { id: 'c', text: '积极进取' },
+      { id: 'd', text: '放弃一切' }
+    ],
+    correctAnswer: 'a',
+    explanation: '《道德经》的核心思想之一就是"道法自然"，强调顺应自然规律。'
+  }]
 })
 
 // 进度环样式
@@ -611,12 +837,8 @@ const ringStyle = computed(() => ({
 
 // 成就数据
 const achievements = computed(() => {
-  // 计算总完成课程数
-  let totalCompleted = 0
-  Object.values(paths.value).forEach(path => {
-    totalCompleted += path.lessons.filter(l => l.completed).length
-  })
-
+  const totalCompleted = learningStats.value.completedLessons
+  
   return [
     { 
       id: 'beginner', 
@@ -658,15 +880,9 @@ const achievements = computed(() => {
 })
 
 // 方法
-const calculateProgress = (key: string) => {
-  const path = paths.value[key]
-  const total = path.lessons.length
-  const completed = path.lessons.filter(l => l.completed).length
-  return total ? Math.round((completed / total) * 100) : 0
-}
-
 const selectPath = (key: PathKey) => {
   currentPathKey.value = key
+  currentLesson.value = null
   nextTick(() => {
     const el = document.getElementById('pathDetails')
     if (el) {
@@ -677,60 +893,164 @@ const selectPath = (key: PathKey) => {
 
 const getDifficultyClass = (diff: Difficulty) => {
   switch (diff) {
-    case 'easy': return 'bg-green-100 text-green-700'
-    case 'medium': return 'bg-orange-100 text-orange-700'
-    case 'hard': return 'bg-red-100 text-red-700'
+    case Difficulty.BEGINNER: return 'bg-green-100 text-green-700'
+    case Difficulty.INTERMEDIATE: return 'bg-orange-100 text-orange-700'
+    case Difficulty.ADVANCED: return 'bg-red-100 text-red-700'
     default: return 'bg-gray-100 text-gray-700'
   }
 }
 
 const getDifficultyText = (diff: Difficulty) => {
   switch (diff) {
-    case 'easy': return '初级'
-    case 'medium': return '中级'
-    case 'hard': return '高级'
+    case Difficulty.BEGINNER: return '初级'
+    case Difficulty.INTERMEDIATE: return '中级'
+    case Difficulty.ADVANCED: return '高级'
     default: return '未知'
   }
 }
 
-const openQuiz = (lesson: Lesson, isReview: boolean) => {
-  quizLesson.value = lesson
-  isReviewMode.value = isReview
-  showQuiz.value = true
+const openLessonDetail = (lesson: Lesson) => {
+  currentLesson.value = lesson
+  loadLessonNotes(lesson.id)
+  
+  // 查找下一章课程
+  findNextLesson(lesson)
+  
+  // 记录学习会话
+  LearningAnalyticsService.recordStudySession('current-user', lesson.id, 15, false)
+  
+  // 更新学习统计
+  updateLearningStats()
+  
+  // 平滑滚动到学习笔记区域
+  isScrolling.value = true
+  nextTick(() => {
+    const notesSection = document.querySelector('.learning-notes-section')
+    if (notesSection) {
+      // 计算偏移量，确保笔记区域在视口顶部
+      const offsetTop = notesSection.getBoundingClientRect().top + window.pageYOffset - 100
+      
+      window.scrollTo({
+        top: offsetTop,
+        behavior: 'smooth'
+      })
+      
+      // 滚动完成后重置状态
+      setTimeout(() => {
+        isScrolling.value = false
+      }, 800)
+    } else {
+      isScrolling.value = false
+    }
+  })
 }
+
+// 查找下一章课程
+const findNextLesson = (currentLesson: Lesson) => {
+  if (!currentPathKey.value) return
+  
+  const path = LearningPathService.getPathById(currentPathKey.value)
+  if (!path) return
+  
+  const currentIndex = path.lessons.findIndex((lesson: Lesson) => lesson.id === currentLesson.id)
+  if (currentIndex !== -1 && currentIndex < path.lessons.length - 1) {
+    nextLesson.value = path.lessons[currentIndex + 1]
+  } else {
+    nextLesson.value = null
+  }
+}
+
+// 完成当前章节并解锁下一章
+const completeCurrentLesson = () => {
+  if (!currentLesson.value || !currentPathKey.value) return
+  
+  // 标记当前章节为已完成
+  LearningPathService.markLessonAsCompleted(currentPathKey.value, currentLesson.value.id)
+  
+  // 如果存在下一章，标记为当前学习章节
+  if (nextLesson.value) {
+    LearningPathService.markLessonAsCurrent(currentPathKey.value, nextLesson.value.id)
+  }
+  
+  // 更新学习统计
+  updateLearningStats()
+  
+  // 显示完成提示
+  alert(`恭喜！您已完成 ${currentLesson.value.title} 的学习！`)
+}
+
+// 获取进度条颜色
+const getProgressColor = (pathId: string) => {
+  const path = learningPaths.value.find((p: LearningPath) => p.id === pathId)
+  if (!path) return 'bg-gray-400'
+  
+  const progress = getPathProgress(pathId)
+  if (progress >= 80) return 'bg-green-500'
+  if (progress >= 50) return 'bg-blue-500'
+  if (progress >= 30) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
+// 计算路径进度
+const getPathProgress = (pathId: string) => {
+  const path = learningPaths.value.find((p: LearningPath) => p.id === pathId)
+  if (!path) return 0
+  
+  const completedLessons = path.lessons.filter((lesson: Lesson) => lesson.completed).length
+  return Math.round((completedLessons / path.totalLessons) * 100)
+}
+
+// 重置学习目标
+const resetGoals = () => {
+  learningGoals.value = {
+    dailyGoal: 30,
+    weeklyGoal: 3,
+    monthlyGoal: 1
+  }
+  alert('学习目标已重置为默认值！')
+}
+
+// 保存学习目标
+const saveLearningGoals = () => {
+  // 这里可以保存到localStorage或后端
+  localStorage.setItem('learning_goals', JSON.stringify(learningGoals.value))
+  showGoalSetting.value = false
+  alert('学习目标已保存！')
+}
+
+// const openQuiz = (lesson: Lesson, isReview: boolean) => {
+//   quizLesson.value = lesson
+//   isReviewMode.value = isReview
+//   showQuiz.value = true
+// }
 
 const closeQuiz = () => {
   showQuiz.value = false
   quizLesson.value = null
 }
 
-const completeLesson = () => {
+const completeQuiz = (quizScore?: number) => {
   if (!quizLesson.value || !currentPath.value || isReviewMode.value) {
     closeQuiz()
     return
   }
 
-  // 标记当前课程为完成
-  const lessonIndex = currentPath.value.lessons.findIndex(l => l.id === quizLesson.value!.id)
-  if (lessonIndex !== -1) {
-    currentPath.value.lessons[lessonIndex].completed = true
-    currentPath.value.lessons[lessonIndex].current = false
-    
-    // 解锁下一课
-    if (lessonIndex + 1 < currentPath.value.lessons.length) {
-      currentPath.value.lessons[lessonIndex + 1].current = true
-    }
-    
-    // 增加经验值
-    addExp(50) // 每完成一课增加 50 XP
-    
-    // 触发随机奇遇 (30% 概率)
-    if (Math.random() < 0.3) {
-      triggerRandomEvent()
-    }
-    
-    // 保存进度
-    saveProgress()
+  // 标记课程完成
+  LearningPathService.markLessonComplete('current-user', currentPathKey.value || 'beginner', quizLesson.value.id.toString())
+  
+  // 记录学习会话（包含测验分数）
+  LearningAnalyticsService.recordStudySession('current-user', quizLesson.value.id, 20, true, quizScore)
+  
+  // 更新学习统计
+  updateLearningStats()
+  
+  // 增加经验值
+  const exp = quizScore && quizScore >= 80 ? 60 : 30
+  addExp(exp)
+  
+  // 触发随机奇遇 (30% 概率)
+  if (Math.random() < 0.3) {
+    triggerRandomEvent()
   }
   
   closeQuiz()
@@ -757,30 +1077,68 @@ const triggerRandomEvent = () => {
   }, 1000)
 }
 
-// 持久化
-const saveProgress = () => {
-  localStorage.setItem('learningPaths', JSON.stringify(paths.value))
+// 笔记相关方法
+const loadLessonNotes = (lessonId: number) => {
+  lessonNotes.value = NoteService.getNotesByLesson('current-user', lessonId)
 }
 
-const loadProgress = () => {
-  const saved = localStorage.getItem('learningPaths')
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved)
-      // 合并保存的数据和初始数据结构（防止数据结构变化导致的问题）
-      Object.keys(initialPaths).forEach(key => {
-        if (parsed[key]) {
-          paths.value[key] = parsed[key]
-        }
-      })
-    } catch (e) {
-      console.error('Failed to load learning progress', e)
-    }
+const saveNote = () => {
+  if (!currentLesson.value || !newNoteContent.value.trim()) return
+  
+  const tags = newNoteTags.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+  
+  NoteService.createNote(
+    'current-user',
+    currentLesson.value.id,
+    `关于${currentLesson.value.title}的笔记`,
+    newNoteContent.value,
+    tags,
+    newNoteIsPublic.value
+  )
+  
+  // 清空输入
+  newNoteContent.value = ''
+  newNoteTags.value = ''
+  newNoteIsPublic.value = false
+  
+  // 重新加载笔记
+  loadLessonNotes(currentLesson.value.id)
+}
+
+const editNote = (note: LearningNote) => {
+  newNoteContent.value = note.content
+  newNoteTags.value = note.tags.join(', ')
+  newNoteIsPublic.value = note.isPublic
+  
+  // 删除原笔记
+  NoteService.deleteNote('current-user', note.id)
+}
+
+const deleteNote = (noteId: string) => {
+  if (confirm('确定要删除这条笔记吗？')) {
+    NoteService.deleteNote('current-user', noteId)
+    loadLessonNotes(currentLesson.value!.id)
   }
 }
 
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('zh-CN')
+}
+
+// 更新学习统计
+const updateLearningStats = () => {
+  learningStats.value = LearningAnalyticsService.getUserStats('current-user')
+}
+
 onMounted(() => {
-  loadProgress()
+  // 加载学习统计
+  updateLearningStats()
+  
+  // 如果有保存的路径选择，恢复它
+  const savedPath = localStorage.getItem('currentLearningPath')
+  if (savedPath && ['beginner', 'intermediate', 'advanced'].includes(savedPath)) {
+    currentPathKey.value = savedPath as PathKey
+  }
 })
 </script>
 
@@ -803,40 +1161,5 @@ onMounted(() => {
 :global(html.zen-mode) .text-blue-600,
 :global(html.zen-mode) .text-purple-600 {
   color: #d4b483 !important;
-}
-
-/* 古籍模式适配 */
-:global(html.retro-mode) .bg-white {
-  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiLz4KPC9zdmc+');
-  border: 1px solid #8d6e63;
-}
-
-:global(html.retro-mode.zen-mode) .bg-white {
-  background-image: none;
-  border-color: #d4b483;
-}
-
-:global(html.retro-mode) h1,
-:global(html.retro-mode) h2,
-:global(html.retro-mode) h3 {
-  font-family: "KaiTi", "STKaiti", serif;
-  letter-spacing: 0.1em;
-}
-
-/* 进度环动画 */
-circle {
-  transition: stroke-dashoffset 1s ease-in-out;
-}
-
-/* 弹窗动画 */
-@keyframes bounceIn {
-  0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.05); opacity: 1; }
-  70% { transform: scale(0.9); }
-  100% { transform: scale(1); }
-}
-
-.animate-bounce-in {
-  animation: bounceIn 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000);
 }
 </style>

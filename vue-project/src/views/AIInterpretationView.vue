@@ -14,6 +14,28 @@
         
         <!-- 工具栏 -->
         <div class="flex items-center gap-3">
+          <!-- 道德经解读按钮 -->
+          <button 
+            class="btn-toolbar btn-primary"
+            @click="router.push('/tts')"
+            title="道德经语音合成"
+          >
+            <i class="fas fa-music"></i>
+            <span class="ml-2 hidden md:inline">道德经解读</span>
+          </button>
+          
+          <!-- 语音合成按钮 -->
+          <button 
+            v-if="lastAIMessage"
+            class="btn-toolbar"
+            :class="{ active: isPlaying }"
+            @click="toggleSpeech"
+            :title="isPlaying ? '停止朗读' : '朗读回复'"
+          >
+            <i :class="isPlaying ? 'fas fa-volume-up animate-pulse' : 'fas fa-volume-off'"></i>
+            <span class="ml-2 hidden md:inline">{{ isPlaying ? '停止朗读' : '朗读回复' }}</span>
+          </button>
+          
           <!-- 对话历史切换按钮 -->
           <button 
             class="btn-toolbar"
@@ -91,15 +113,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import AIChat from '@/components/chat/AIChat.vue'
 import ChapterSelector from '@/components/chat/ChapterSelector.vue'
 import PopularQuestions from '@/components/chat/PopularQuestions.vue'
 import ConversationHistory from '@/components/chat/ConversationHistory.vue'
 import { useChatStore } from '@/stores/chat'
+import { useTTS } from '@/composables/useTTS'
+import { storeToRefs } from 'pinia'
+
+const router = useRouter()
 
 const chatStore = useChatStore()
+const { messages } = storeToRefs(chatStore)
 const showHistory = ref(false)
+
+// 语音合成
+const { isSpeaking, speak, stop } = useTTS()
+const isPlaying = ref(false)
+
+// 获取最后一条 AI 消息
+const lastAIMessage = computed(() => {
+  const aiMessages = messages.value.filter(m => m.type === 'ai')
+  return aiMessages[aiMessages.length - 1]
+})
+
+// 播放/停止语音
+const toggleSpeech = async () => {
+  if (isPlaying.value) {
+    stop()
+    isPlaying.value = false
+  } else {
+    if (lastAIMessage.value) {
+      isPlaying.value = true
+      await speak(lastAIMessage.value.content)
+      isPlaying.value = false
+    }
+  }
+}
 
 // 切换对话历史显示状态
 const toggleHistory = () => {
@@ -154,6 +206,18 @@ const createNewConversation = async () => {
   border-color: #3b82f6;
   background: #3b82f6;
   color: white;
+}
+
+.btn-toolbar.btn-primary {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-toolbar.btn-primary:hover {
+  border-color: #059669;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .btn-toolbar:active {

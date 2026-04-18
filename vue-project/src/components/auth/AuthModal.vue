@@ -342,7 +342,7 @@ const handleRegister = async () => {
   
   isLoading.value = true
   try {
-    await register(registerForm.name, registerForm.email, registerForm.password, registerForm.name)
+    await register(registerForm.name, registerForm.email, registerForm.password)
   } catch (error: any) {
     alert(error.message || '注册失败，请稍后重试')
   } finally {

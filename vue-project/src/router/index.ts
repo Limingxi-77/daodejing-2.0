@@ -9,6 +9,16 @@ const router = createRouter({
       component: () => import('@/views/HomeView.vue')
     },
     {
+      path: '/login',
+      name: 'Login',
+      component: () => import('@/views/LoginView.vue')
+    },
+    {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/RegisterView.vue')
+    },
+    {
       path: '/ai-interpretation',
       name: 'AIInterpretation',
       component: () => import('@/views/AIInterpretationView.vue')
@@ -52,6 +62,15 @@ const router = createRouter({
       path: '/dao-art',
       name: 'DaoArt',
       component: () => import('@/views/DaoArtView.vue')
+    },
+    {
+      path: '/tts',
+      name: 'TTS',
+      component: () => import('@/views/TTSView.vue'),
+      meta: {
+        title: '语音合成',
+        requiresAuth: false
+      }
     }
   ]
 })
