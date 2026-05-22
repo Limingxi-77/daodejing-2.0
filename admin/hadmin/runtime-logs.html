@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运行日志 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+
+    <style>
+        .runtime-toolbar { margin-bottom: 14px; }
+        .runtime-toolbar .form-control { margin-right: 8px; }
+        .runtime-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .runtime-card { flex: 1 1 150px; border: 1px solid #e7eaec; border-radius: 4px; padding: 10px 12px; background: #fff; }
+        .runtime-card small { display:block; color:#888; margin-bottom: 4px; }
+        .runtime-card strong { font-size: 18px; color:#1ab394; }
+        .runtime-log-box { background:#10151c; color:#d6deeb; border-radius:4px; padding:12px; min-height:420px; max-height:620px; overflow:auto; font-family: Consolas, Monaco, monospace; font-size:12px; line-height:1.55; }
+        .runtime-line { display:flex; gap:10px; border-bottom:1px solid rgba(255,255,255,0.05); padding:2px 0; white-space:pre-wrap; word-break:break-all; }
+        .runtime-line-no { flex:0 0 54px; color:#637083; text-align:right; user-select:none; }
+        .runtime-line-level { flex:0 0 64px; text-transform:uppercase; font-weight:600; }
+        .runtime-line-message { flex:1 1 auto; }
+        .runtime-level-error .runtime-line-level, .runtime-level-error .runtime-line-message { color:#ff6b6b; }
+        .runtime-level-warning .runtime-line-level, .runtime-level-warning .runtime-line-message { color:#ffd166; }
+        .runtime-level-success .runtime-line-level { color:#5eead4; }
+        .runtime-level-info .runtime-line-level { color:#93c5fd; }
+        .runtime-empty { color:#93a4b7; text-align:center; padding:80px 0; }
+    </style>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-file-text-o"></i> 运行日志</h5>
+                        <div class="ibox-tools">
+                            <small class="text-muted">来源项目 logs 目录</small>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="alert alert-info">
+                            <i class="fa fa-info-circle"></i>
+                            这里展示项目启动命令写入的运行日志，可用于观察后端重启、数据库连接、接口访问和错误堆栈。
+                        </div>
+                        <div id="runtimeError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="runtime-toolbar form-inline">
+                            <select id="sourceSelect" class="form-control"></select>
+                            <select id="levelSelect" class="form-control">
+                                <option value="all">全部级别</option>
+                                <option value="error">错误</option>
+                                <option value="warning">警告</option>
+                                <option value="success">成功/启动</option>
+                                <option value="info">普通</option>
+                            </select>
+                            <select id="linesSelect" class="form-control">
+                                <option value="100">最近 100 行</option>
+                                <option value="200" selected>最近 200 行</option>
+                                <option value="500">最近 500 行</option>
+                                <option value="1000">最近 1000 行</option>
+                            </select>
+                            <input id="keywordInput" class="form-control" style="width:220px;" placeholder="关键词过滤，例如 error / MySQL">
+                            <button id="btnSearchLogs" class="btn btn-primary" type="button"><i class="fa fa-search"></i> 查询</button>
+                            <button id="btnRefreshLogs" class="btn btn-default" type="button"><i class="fa fa-refresh"></i> 刷新</button>
+                            <label class="checkbox-inline" style="margin-left:8px;"><input id="autoRefresh" type="checkbox"> 10 秒自动刷新</label>
+                        </div>
+
+                        <div class="runtime-summary">
+                            <div class="runtime-card"><small>日志文件</small><strong id="summaryFile">-</strong></div>
+                            <div class="runtime-card"><small>文件大小</small><strong id="summarySize">-</strong></div>
+                            <div class="runtime-card"><small>更新时间</small><strong id="summaryUpdated">-</strong></div>
+                            <div class="runtime-card"><small>匹配行数</small><strong id="summaryMatched">-</strong></div>
+                        </div>
+
+                        <div id="runtimeLogBox" class="runtime-log-box">
+                            <div class="runtime-empty">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var timer = null;
+        var initializedSources = false;
+
+        function fmtBytes(bytes) {
+            bytes = Number(bytes || 0);
+            if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+            if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return bytes + ' B';
+        }
+
+        function currentQuery() {
+            return {
+                source: document.getElementById('sourceSelect').value || 'all',
+                level: document.getElementById('levelSelect').value || 'all',
+                lines: document.getElementById('linesSelect').value || '200',
+                keyword: document.getElementById('keywordInput').value.trim()
+            };
+        }
+
+        function renderSources(sources, selected) {
+            if (initializedSources) return;
+            var html = (sources || []).map(function (item) {
+                return '<option value="' + AdminAPI.escapeHtml(item.key) + '">' +
+                    AdminAPI.escapeHtml(item.label + ' · ' + item.file) + '</option>';
+            }).join('');
+            document.getElementById('sourceSelect').innerHTML = html;
+            document.getElementById('sourceSelect').value = selected || 'all';
+            initializedSources = true;
+        }
+
+        function renderLines(lines) {
+            var box = document.getElementById('runtimeLogBox');
+            if (!lines || lines.length === 0) {
+                box.innerHTML = '<div class="runtime-empty">没有匹配的日志行</div>';
+                return;
+            }
+            box.innerHTML = lines.map(function (line) {
+                var level = line.level || 'info';
+                return '<div class="runtime-line runtime-level-' + AdminAPI.escapeHtml(level) + '">' +
+                    '<span class="runtime-line-no">' + AdminAPI.escapeHtml(line.no) + '</span>' +
+                    '<span class="runtime-line-level">' + AdminAPI.escapeHtml(level) + '</span>' +
+                    '<span class="runtime-line-message">' + (line.source ? '<span class="label label-default">' + AdminAPI.escapeHtml(line.source) + ':' + AdminAPI.escapeHtml(line.lineNo || '') + '</span> ' : '') + AdminAPI.escapeHtml(line.message) + '</span>' +
+                '</div>';
+            }).join('');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function renderSummary(result) {
+            document.getElementById('summaryFile').textContent = result.exists ? result.file : result.file + ' 不存在';
+            document.getElementById('summarySize').textContent = fmtBytes(result.sizeBytes);
+            document.getElementById('summaryUpdated').textContent = result.updated_at ? AdminAPI.formatDate(result.updated_at) : '-';
+            document.getElementById('summaryMatched').textContent = String(result.totalMatched || 0);
+        }
+
+        function loadLogs() {
+            AdminAPI.showError('#runtimeError', '');
+            var query = currentQuery();
+            AdminAPI.apiFetch('/api/admin/runtime-logs?' + AdminAPI.qs(query))
+                .then(function (result) {
+                    renderSources(result.sources, result.selectedSource);
+                    document.getElementById('levelSelect').value = result.selectedLevel || query.level;
+                    renderSummary(result);
+                    renderLines(result.lines || []);
+                    if (result.truncated) {
+                        AdminAPI.showError('#runtimeError', '日志文件较大，仅读取最后 1MB 内容。');
+                    }
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#runtimeError', '加载运行日志失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function syncTimer() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            if (document.getElementById('autoRefresh').checked) {
+                timer = setInterval(loadLogs, 10000);
+            }
+        }
+
+        jQuery(function () {
+            jQuery('#btnSearchLogs,#btnRefreshLogs').on('click', loadLogs);
+            jQuery('#sourceSelect,#levelSelect,#linesSelect').on('change', loadLogs);
+            jQuery('#keywordInput').on('keydown', function (event) {
+                if (event.keyCode === 13) loadLogs();
+            });
+            jQuery('#autoRefresh').on('change', syncTimer);
+            loadLogs();
+        });
+
+        window.addEventListener('beforeunload', function () {
+            if (timer) clearInterval(timer);
+        });
+    })();
+    </script>
+</body>
+
+</html>

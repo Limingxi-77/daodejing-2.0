@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      MYSQL_HOST: localhost
+      MYSQL_PORT: 3306
+      MYSQL_USER: ci_user
+      MYSQL_PASSWORD: ci_password_123456
+      MYSQL_DATABASE: daodejing_platform
+      JWT_SECRET: ci-user-secret-1234567890
+      ADMIN_JWT_SECRET: ci-admin-secret-1234567890
+      HADMIN_INTERNAL_TOKEN: ci-hadmin-token-1234567890
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Backend check
+        run: npm run backend:check
+
+      - name: Backend tests
+        run: npm run backend:test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            vue-project/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix vue-project ci
+
+      - name: Frontend type check
+        run: npm run frontend:type-check
+
+      - name: Frontend build
+        run: npm run frontend:build
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            vue-project/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix vue-project ci
+
+      - name: Install Playwright browser
+        run: npm --prefix vue-project run e2e:install
+
+      - name: Frontend E2E smoke
+        run: npm run frontend:e2e

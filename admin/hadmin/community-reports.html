@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>举报管理 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-flag"></i> 举报管理</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="reportsFilterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="reportsStatus" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="pending" selected>待处理</option>
+                                    <option value="resolved">已处理</option>
+                                    <option value="rejected">已驳回</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">筛选</button>
+                        </form>
+
+                        <div id="reportsError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>对象类型</th>
+                                        <th>对象ID</th>
+                                        <th>原因</th>
+                                        <th>状态</th>
+                                        <th>举报时间</th>
+                                        <th style="width: 200px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsBody">
+                                    <tr><td colspan="6" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="reportsPagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = { page: 1, pageSize: 20, status: 'pending' };
+
+        function statusLabel(s) {
+            if (s === 'resolved') return '<span class="label label-primary">已处理</span>';
+            if (s === 'rejected') return '<span class="label label-default">已驳回</span>';
+            return '<span class="label label-warning">待处理</span>';
+        }
+
+        function renderRow(r) {
+            var isPending = (r.status === 'pending');
+            return '<tr data-id="' + AdminAPI.escapeHtml(r.id) + '">' +
+                '<td>' + AdminAPI.escapeHtml(r.target_type || '-') + '</td>' +
+                '<td><small>' + AdminAPI.escapeHtml(r.target_id || '-') + '</small></td>' +
+                '<td>' + AdminAPI.escapeHtml(r.reason || '-') + '</td>' +
+                '<td>' + statusLabel(r.status) + '</td>' +
+                '<td>' + AdminAPI.formatDate(r.created_at) + '</td>' +
+                '<td>' +
+                    (isPending
+                        ? '<button class="btn btn-xs btn-success btn-resolve">标记已处理</button> ' +
+                          '<button class="btn btn-xs btn-default btn-reject">驳回</button>'
+                        : '<small class="text-muted">已处理</small>') +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var q = AdminAPI.qs({ page: state.page, pageSize: state.pageSize, status: state.status });
+            AdminAPI.apiFetch('/api/admin/community/reports?' + q)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var body = document.getElementById('reportsBody');
+                    body.innerHTML = rows.length === 0
+                        ? '<tr><td colspan="6" class="text-center text-muted">暂无举报</td></tr>'
+                        : rows.map(renderRow).join('');
+                    AdminAPI.renderPagination('#reportsPagination', result.pagination, function (p) {
+                        state.page = p; load();
+                    });
+                    AdminAPI.showError('#reportsError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#reportsError', '加载举报失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function patchReport(id, status) {
+            return AdminAPI.apiFetch('/api/admin/community/reports/' + encodeURIComponent(id) + '/status', {
+                method: 'PATCH',
+                body: { status: status }
+            }).then(function () {
+                AdminAPI.notify('已更新（已通知举报人）', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('操作失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#reportsFilterForm').on('submit', function (e) {
+                e.preventDefault();
+                state.status = jQuery('#reportsStatus').val();
+                state.page = 1; load();
+            });
+
+            jQuery('#reportsBody').on('click', '.btn-resolve', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchReport(id, 'resolved');
+            }).on('click', '.btn-reject', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchReport(id, 'rejected');
+            });
+
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>用户管理</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="row" style="margin-bottom: 10px;">
+                            <div class="col-sm-6">
+                                <form id="searchForm" class="form-inline">
+                                    <div class="form-group">
+                                        <input type="text" id="searchKeyword" class="form-control" placeholder="用户名 / 邮箱 / 显示名">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> 搜索</button>
+                                    <button type="button" id="resetBtn" class="btn btn-default">重置</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div id="usersError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>用户名</th>
+                                        <th>邮箱</th>
+                                        <th>显示名</th>
+                                        <th>密码</th>
+                                        <th>会员等级</th>
+                                        <th>会员到期</th>
+                                        <th>状态</th>
+                                        <th>上次登录</th>
+                                        <th style="width: 280px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersBody">
+                                    <tr><td colspan="9" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = {
+            page: 1,
+            pageSize: 20,
+            keyword: ''
+        };
+        var rowCache = {};
+
+        function renderPasswordCell(pwd) {
+            if (!pwd) {
+                return '<span class="text-muted">-</span>';
+            }
+            return '<span class="pwd-mask">' + new Array(Math.min(pwd.length, 8) + 1).join('•') + '</span>' +
+                   '<span class="pwd-text" style="display:none;">' + AdminAPI.escapeHtml(pwd) + '</span> ' +
+                   '<a href="javascript:void(0)" class="pwd-toggle" title="显示/隐藏"><i class="fa fa-eye"></i></a>';
+        }
+
+        var TIER_LABELS = {
+            free: '布衣',
+            pro: '居士',
+            master: '宗师',
+            basic: 'basic',
+            premium: 'premium',
+            vip: 'vip'
+        };
+        var TIER_CLASSES = {
+            free: 'label-default',
+            pro: 'label-primary',
+            master: 'label-warning',
+            basic: 'label-info',
+            premium: 'label-primary',
+            vip: 'label-warning'
+        };
+
+        function renderTierCell(tier) {
+            tier = tier || 'free';
+            var label = TIER_LABELS[tier] || tier;
+            var cls = TIER_CLASSES[tier] || 'label-default';
+            return '<span class="label ' + cls + '">' + AdminAPI.escapeHtml(label) +
+                '</span><small class="text-muted" style="margin-left:6px;">' + AdminAPI.escapeHtml(tier) + '</small>';
+        }
+
+        function formatRemaining(expiryIso) {
+            if (!expiryIso) return '<span class="text-muted">永不过期</span>';
+            var expiry = new Date(expiryIso);
+            if (isNaN(expiry.getTime())) return '<span class="text-muted">-</span>';
+            var now = new Date();
+            var diffMs = expiry.getTime() - now.getTime();
+            var dateStr = AdminAPI.formatDate(expiryIso, false);
+            if (diffMs < 0) {
+                return dateStr + ' <span class="label label-danger">已过期</span>';
+            }
+            var diffDays = Math.ceil(diffMs / 86400000);
+            var remainText;
+            if (diffDays === 0) {
+                remainText = '今日到期';
+            } else if (diffDays < 30) {
+                remainText = '剩余 ' + diffDays + ' 天';
+            } else if (diffDays < 365) {
+                var months = Math.floor(diffDays / 30);
+                var extraDays = diffDays % 30;
+                remainText = '剩余 ' + months + ' 个月' + (extraDays > 0 ? ' ' + extraDays + ' 天' : '');
+            } else {
+                var years = Math.floor(diffDays / 365);
+                var extraMonths = Math.floor((diffDays % 365) / 30);
+                remainText = '剩余 ' + years + ' 年' + (extraMonths > 0 ? ' ' + extraMonths + ' 个月' : '');
+            }
+            var cls = diffDays <= 7 ? 'label-warning' : 'label-success';
+            return dateStr + ' <span class="label ' + cls + '">' + remainText + '</span>';
+        }
+
+        function renderRow(u) {
+            rowCache[u.id] = u;
+            var statusBadge = u.is_active
+                ? '<span class="label label-primary">启用</span>'
+                : '<span class="label label-default">已禁用</span>';
+            var lastLogin = u.last_login ? AdminAPI.formatDate(u.last_login) : '-';
+            var toggleLabel = u.is_active ? '禁用' : '启用';
+            var toggleCls = u.is_active ? 'btn-warning' : 'btn-success';
+
+            return '<tr data-id="' + AdminAPI.escapeHtml(u.id) + '">' +
+                '<td>' + AdminAPI.escapeHtml(u.username || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(u.email || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(u.display_name || '-') + '</td>' +
+                '<td>' + renderPasswordCell(u.password) + '</td>' +
+                '<td>' + renderTierCell(u.subscription_tier) + '</td>' +
+                '<td>' + formatRemaining(u.subscription_expiry) + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + lastLogin + '</td>' +
+                '<td>' +
+                    '<button class="btn btn-xs btn-primary btn-edit"><i class="fa fa-edit"></i> 编辑</button> ' +
+                    '<button class="btn btn-xs btn-info btn-reset-pwd"><i class="fa fa-key"></i> 重置密码</button> ' +
+                    '<button class="btn btn-xs ' + toggleCls + ' btn-toggle">' + toggleLabel + '</button>' +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var query = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                keyword: state.keyword
+            });
+            AdminAPI.apiFetch('/api/admin/users?' + query)
+                .then(function (result) {
+                    var rows = (result.data || []);
+                    rowCache = {};
+                    var body = document.getElementById('usersBody');
+                    if (rows.length === 0) {
+                        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>';
+                    } else {
+                        body.innerHTML = rows.map(renderRow).join('');
+                    }
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p;
+                        load();
+                    });
+                    AdminAPI.showError('#usersError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#usersError', '加载用户失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function openEditForm(userId) {
+            var u = rowCache[userId];
+            if (!u) {
+                AdminAPI.notify('未找到用户数据', 'error');
+                return;
+            }
+
+            var tierOptions = [
+                ['free', '布衣 (free)'],
+                ['pro', '居士 (pro)'],
+                ['master', '宗师 (master)']
+            ].map(function (pair) {
+                var sel = (u.subscription_tier === pair[0]) ? 'selected' : '';
+                return '<option value="' + pair[0] + '" ' + sel + '>' + pair[1] + '</option>';
+            }).join('');
+            if (u.subscription_tier && ['free','pro','master'].indexOf(u.subscription_tier) < 0) {
+                tierOptions = '<option value="' + AdminAPI.escapeHtml(u.subscription_tier) + '" selected>' +
+                    AdminAPI.escapeHtml(u.subscription_tier) + '（当前值）</option>' + tierOptions;
+            }
+
+            var expiryValue = '';
+            if (u.subscription_expiry) {
+                var d = new Date(u.subscription_expiry);
+                if (!isNaN(d.getTime())) {
+                    expiryValue = d.toISOString().slice(0, 10);
+                }
+            }
+
+            var html = '<form id="userEditForm" class="form-horizontal" style="padding: 15px;">' +
+                '<div class="form-group"><label class="col-sm-3 control-label">用户名</label>' +
+                  '<div class="col-sm-8"><input name="username" class="form-control" value="' + AdminAPI.escapeHtml(u.username || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">邮箱</label>' +
+                  '<div class="col-sm-8"><input name="email" type="email" class="form-control" value="' + AdminAPI.escapeHtml(u.email || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">显示名</label>' +
+                  '<div class="col-sm-8"><input name="display_name" class="form-control" value="' + AdminAPI.escapeHtml(u.display_name || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">订阅等级</label>' +
+                  '<div class="col-sm-8"><select name="subscription_tier" class="form-control">' + tierOptions + '</select></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">订阅到期</label>' +
+                  '<div class="col-sm-8"><input name="subscription_expiry" type="date" class="form-control" value="' + expiryValue + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">密码</label>' +
+                  '<div class="col-sm-8">' +
+                    '<div class="input-group">' +
+                      '<input name="password" type="text" class="form-control" value="' + AdminAPI.escapeHtml(u.password || '') + '" placeholder="留空则不修改">' +
+                      '<span class="input-group-btn">' +
+                        '<button type="button" class="btn btn-default" id="pwdToggleBtn"><i class="fa fa-eye-slash"></i></button>' +
+                      '</span>' +
+                    '</div>' +
+                    '<p class="help-block" style="margin-bottom:0;"><small>修改后立即对该用户生效</small></p>' +
+                  '</div></div>' +
+                '<div id="formError" class="alert alert-danger" style="display:none;margin: 0 15px;"></div>' +
+                '</form>';
+
+            layer.open({
+                type: 1,
+                title: '编辑用户 - ' + AdminAPI.escapeHtml(u.username || ''),
+                area: ['540px', '520px'],
+                content: html,
+                btn: ['保存', '取消'],
+                success: function () {
+                    var pwdInput = document.querySelector('#userEditForm input[name="password"]');
+                    var pwdBtn = document.getElementById('pwdToggleBtn');
+                    pwdInput.type = 'password';
+                    pwdBtn.addEventListener('click', function () {
+                        if (pwdInput.type === 'password') {
+                            pwdInput.type = 'text';
+                            pwdBtn.innerHTML = '<i class="fa fa-eye"></i>';
+                        } else {
+                            pwdInput.type = 'password';
+                            pwdBtn.innerHTML = '<i class="fa fa-eye-slash"></i>';
+                        }
+                    });
+                },
+                yes: function (idx) {
+                    var form = document.getElementById('userEditForm');
+                    var body = {
+                        username: form.username.value.trim(),
+                        email: form.email.value.trim(),
+                        display_name: form.display_name.value.trim(),
+                        subscription_tier: form.subscription_tier.value
+                    };
+                    var expiryVal = form.subscription_expiry.value;
+                    body.subscription_expiry = expiryVal || null;
+
+                    var newPwd = form.password.value;
+                    if (newPwd && newPwd !== (u.password || '')) {
+                        body.password = newPwd;
+                    }
+
+                    AdminAPI.apiFetch('/api/admin/users/' + encodeURIComponent(userId), {
+                        method: 'PATCH',
+                        body: body
+                    }).then(function () {
+                        layer.close(idx);
+                        AdminAPI.notify('已保存', 'success');
+                        load();
+                    }).catch(function (err) {
+                        jQuery('#formError').text('保存失败：' + (err && err.message ? err.message : err)).show();
+                    });
+                }
+            });
+        }
+
+        function openResetPasswordForm(userId) {
+            var u = rowCache[userId];
+            if (!u) {
+                AdminAPI.notify('未找到用户数据', 'error');
+                return;
+            }
+            var html = '<form id="resetPwdForm" class="form-horizontal" style="padding: 20px;">' +
+                '<div class="form-group"><label class="col-sm-3 control-label">用户</label>' +
+                  '<div class="col-sm-8"><p class="form-control-static"><strong>' + AdminAPI.escapeHtml(u.username || '') +
+                  '</strong> <small class="text-muted">' + AdminAPI.escapeHtml(u.email || '') + '</small></p></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">新密码</label>' +
+                  '<div class="col-sm-8">' +
+                    '<div class="input-group">' +
+                      '<input name="password" type="text" class="form-control" placeholder="至少 6 个字符" autocomplete="new-password">' +
+                      '<span class="input-group-btn">' +
+                        '<button type="button" class="btn btn-default" id="rndPwdBtn" title="随机生成"><i class="fa fa-random"></i></button>' +
+                      '</span>' +
+                    '</div>' +
+                    '<p class="help-block" style="margin-bottom:0;"><small>保存后立即对用户生效；建议复制后告知用户</small></p>' +
+                  '</div></div>' +
+                '<div id="resetPwdError" class="alert alert-danger" style="display:none;margin: 0 15px;"></div>' +
+                '</form>';
+
+            layer.open({
+                type: 1,
+                title: '重置密码 - ' + AdminAPI.escapeHtml(u.username || ''),
+                area: ['480px', '280px'],
+                content: html,
+                btn: ['保存', '取消'],
+                success: function () {
+                    var pwdInput = document.querySelector('#resetPwdForm input[name="password"]');
+                    document.getElementById('rndPwdBtn').addEventListener('click', function () {
+                        var chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                        var pwd = '';
+                        for (var i = 0; i < 10; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+                        pwdInput.value = pwd;
+                    });
+                    pwdInput.focus();
+                },
+                yes: function (idx) {
+                    var newPwd = (document.querySelector('#resetPwdForm input[name="password"]').value || '').trim();
+                    if (newPwd.length < 6) {
+                        jQuery('#resetPwdError').text('密码至少 6 个字符').show();
+                        return;
+                    }
+                    AdminAPI.apiFetch('/api/admin/users/' + encodeURIComponent(userId) + '/reset-password', {
+                        method: 'POST',
+                        body: { password: newPwd }
+                    }).then(function () {
+                        layer.close(idx);
+                        layer.open({
+                            type: 1,
+                            title: '密码已重置',
+                            area: ['420px', '220px'],
+                            content: '<div style="padding:24px;text-align:center;">' +
+                                '<p>新密码为：</p>' +
+                                '<p><code style="font-size:18px;padding:6px 12px;background:#f5f5f5;border-radius:4px;">' +
+                                  AdminAPI.escapeHtml(newPwd) + '</code></p>' +
+                                '<p class="text-muted"><small>请复制后告知用户</small></p></div>',
+                            btn: ['知道了']
+                        });
+                        load();
+                    }).catch(function (err) {
+                        jQuery('#resetPwdError').text('重置失败：' + (err && err.message ? err.message : err)).show();
+                    });
+                }
+            });
+        }
+
+        function toggleStatus(userId, $row) {
+            var u = rowCache[userId] || {};
+            var nextActive = !u.is_active;
+            var actionText = nextActive ? '启用' : '禁用';
+
+            AdminAPI.confirmAction('确定要' + actionText + '该用户吗？').then(function (ok) {
+                if (!ok) return;
+                AdminAPI.apiFetch('/api/admin/users/' + encodeURIComponent(userId) + '/status', {
+                    method: 'PATCH',
+                    body: { is_active: nextActive }
+                }).then(function () {
+                    AdminAPI.notify('已' + actionText, 'success');
+                    load();
+                }).catch(function (err) {
+                    AdminAPI.notify('操作失败：' + (err && err.message ? err.message : err), 'error');
+                });
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#searchForm').on('submit', function (e) {
+                e.preventDefault();
+                state.keyword = jQuery('#searchKeyword').val().trim();
+                state.page = 1;
+                load();
+            });
+            jQuery('#resetBtn').on('click', function () {
+                jQuery('#searchKeyword').val('');
+                state.keyword = '';
+                state.page = 1;
+                load();
+            });
+            jQuery('#usersBody').on('click', '.btn-edit', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                openEditForm(id);
+            });
+            jQuery('#usersBody').on('click', '.btn-reset-pwd', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                openResetPasswordForm(id);
+            });
+            jQuery('#usersBody').on('click', '.btn-toggle', function () {
+                var $row = jQuery(this).closest('tr');
+                toggleStatus($row.data('id'), $row);
+            });
+            jQuery('#usersBody').on('click', '.pwd-toggle', function () {
+                var $td = jQuery(this).closest('td');
+                var $mask = $td.find('.pwd-mask');
+                var $text = $td.find('.pwd-text');
+                if ($text.is(':visible')) {
+                    $text.hide(); $mask.show();
+                    jQuery(this).find('i').attr('class', 'fa fa-eye');
+                } else {
+                    $mask.hide(); $text.show();
+                    jQuery(this).find('i').attr('class', 'fa fa-eye-slash');
+                }
+            });
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

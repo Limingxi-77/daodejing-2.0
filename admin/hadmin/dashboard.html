@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪表盘 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+
+    <style>
+        /* 让 .row.flex-row 内的两个 col 等高，且 ibox 撑满 col */
+        @media (min-width: 992px) {
+            .row.flex-row {
+                display: flex;
+                flex-wrap: wrap;
+            }
+            .row.flex-row > [class*="col-"] {
+                display: flex;
+                flex-direction: column;
+            }
+            .row.flex-row > [class*="col-"] > .ibox {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+            }
+            .row.flex-row > [class*="col-"] > .ibox > .ibox-content {
+                flex: 1 1 auto;
+            }
+        }
+        /* AI 用量摘要 mini-stat 横排 */
+        .ai-summary-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .ai-summary-row .ai-summary-cell {
+            flex: 1 1 0;
+            min-width: 90px;
+            background: #f5f7fa;
+            border-radius: 4px;
+            padding: 8px 10px;
+            text-align: center;
+        }
+        .ai-summary-row .ai-summary-cell small {
+            color: #888;
+            display: block;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .ai-summary-row .ai-summary-cell strong {
+            font-size: 16px;
+            color: #1ab394;
+        }
+        .ai-by-model-wrapper {
+            overflow-x: auto;
+        }
+        .ai-by-model-wrapper table {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div id="dashboardError" class="alert alert-danger" style="display:none;"></div>
+
+        <!-- 4 个统计卡 -->
+        <div class="row">
+            <div class="col-lg-3 col-md-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <span class="label label-success pull-right">实时</span>
+                        <h5>今日请求总数</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <h1 class="no-margins" id="metricRequestsTotal">-</h1>
+                        <small>累计自服务启动起的 HTTP 请求</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <span class="label label-info pull-right">24h</span>
+                        <h5>今日 AI 调用</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <h1 class="no-margins" id="metricAiCalls">-</h1>
+                        <small id="metricAiTokens">tokens: -</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <span class="label label-warning pull-right">24h</span>
+                        <h5>安全事件</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <h1 class="no-margins" id="metricSecurityEvents">-</h1>
+                        <small>来源 security_events</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <span class="label label-danger pull-right">待处理</span>
+                        <h5>未处理告警</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <h1 class="no-margins" id="metricUnhandledAlerts">-</h1>
+                        <small>来源 alert_events</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOP 路由 / AI 用量（含按模型细分） -->
+        <div class="row flex-row">
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>TOP 高频路由</h5>
+                        <div class="ibox-tools">
+                            <small class="text-muted">基于内存计数</small>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <table class="table table-striped table-hover">
+                            <thead><tr><th>路由</th><th style="width:120px;">命中次数</th></tr></thead>
+                            <tbody id="topRoutesBody">
+                                <tr><td colspan="2" class="text-center text-muted">加载中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>今日 AI 用量</h5>
+                        <div class="ibox-tools">
+                            <small class="text-muted">来源 ai_usage_logs</small>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <!-- 顶部汇总：3 个小卡 -->
+                        <div class="ai-summary-row" id="aiTodaySummary">
+                            <div class="ai-summary-cell">
+                                <small>调用次数</small>
+                                <strong id="aiTodayCalls">-</strong>
+                            </div>
+                            <div class="ai-summary-cell">
+                                <small>Tokens 用量</small>
+                                <strong id="aiTodayTokens">-</strong>
+                            </div>
+                            <div class="ai-summary-cell">
+                                <small>估算成本 ($)</small>
+                                <strong id="aiTodayCost">-</strong>
+                            </div>
+                        </div>
+
+                        <!-- 按供应商 / 模型细分 -->
+                        <h5 style="margin: 4px 0 8px; font-size: 13px; color: #555;">按供应商 / 模型细分</h5>
+                        <div class="ai-by-model-wrapper">
+                            <table class="table table-striped table-hover table-condensed">
+                                <thead>
+                                    <tr>
+                                        <th>供应商</th>
+                                        <th>模型</th>
+                                        <th style="width: 60px;">次数</th>
+                                        <th style="width: 90px;">Tokens</th>
+                                        <th style="width: 90px;">成本 ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="aiByModelBody">
+                                    <tr><td colspan="5" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                                <tfoot id="aiByModelFoot"></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row flex-row">
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>24h 告警明细（按级别 / 类型）</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <table class="table table-striped">
+                            <thead><tr><th>级别</th><th>类型</th><th style="width:80px;">数量</th></tr></thead>
+                            <tbody id="alertEventsBody">
+                                <tr><td colspan="3" class="text-center text-muted">加载中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>系统状态</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <table class="table">
+                            <tbody id="systemStatusBody">
+                                <tr><td colspan="2" class="text-center text-muted">加载中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center text-muted" style="margin-top: 12px;">
+            <small>最后刷新：<span id="lastUpdated">-</span> · 每 30 秒自动刷新</small>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+
+    <script>
+    (function () {
+        var REFRESH_MS = 30000;
+        var timer = null;
+
+        function fmtNumber(v) {
+            if (v === null || v === undefined || isNaN(Number(v))) return '0';
+            return Number(v).toLocaleString();
+        }
+
+        function fmtSeconds(s) {
+            s = Number(s) || 0;
+            var h = Math.floor(s / 3600);
+            var m = Math.floor((s % 3600) / 60);
+            var sec = s % 60;
+            return (h ? h + 'h ' : '') + (m ? m + 'm ' : '') + sec + 's';
+        }
+
+        function renderTopRoutes(rows) {
+            var body = document.getElementById('topRoutesBody');
+            if (!rows || rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="2" class="text-center text-muted">暂无数据</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.slice(0, 10).map(function (row) {
+                return '<tr><td>' + AdminAPI.escapeHtml(row.route) +
+                    '</td><td>' + fmtNumber(row.count) + '</td></tr>';
+            }).join('');
+        }
+
+        function renderAiToday(ai) {
+            ai = ai || {};
+            document.getElementById('aiTodayCalls').textContent = fmtNumber(ai.calls);
+            document.getElementById('aiTodayTokens').textContent = fmtNumber(ai.total_tokens);
+            document.getElementById('aiTodayCost').textContent = Number(ai.estimated_cost || 0).toFixed(4);
+        }
+
+        function renderAiByModel(rows) {
+            var body = document.getElementById('aiByModelBody');
+            var foot = document.getElementById('aiByModelFoot');
+            if (!rows || rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">今日暂无 AI 调用</td></tr>';
+                foot.innerHTML = '';
+                return;
+            }
+            body.innerHTML = rows.map(function (r) {
+                var promptN = Number(r.prompt_tokens || 0);
+                var completionN = Number(r.completion_tokens || 0);
+                var totalN = Number(r.total_tokens || 0);
+                var tokenCell = '<strong>' + fmtNumber(totalN) + '</strong>' +
+                    '<br><small class="text-muted">in ' + fmtNumber(promptN) +
+                    ' / out ' + fmtNumber(completionN) + '</small>';
+                return '<tr>' +
+                    '<td>' + AdminAPI.escapeHtml(r.provider_name || '-') + '</td>' +
+                    '<td><code>' + AdminAPI.escapeHtml(r.model_name || '-') + '</code></td>' +
+                    '<td>' + fmtNumber(r.calls) + '</td>' +
+                    '<td>' + tokenCell + '</td>' +
+                    '<td>' + Number(r.estimated_cost || 0).toFixed(4) + '</td>' +
+                '</tr>';
+            }).join('');
+
+            var totals = rows.reduce(function (acc, r) {
+                acc.calls += Number(r.calls || 0);
+                acc.total += Number(r.total_tokens || 0);
+                acc.cost += Number(r.estimated_cost || 0);
+                return acc;
+            }, { calls: 0, total: 0, cost: 0 });
+
+            foot.innerHTML = '<tr style="background:#f5f5f5;font-weight:600;">' +
+                '<td colspan="2" class="text-right">合计</td>' +
+                '<td>' + fmtNumber(totals.calls) + '</td>' +
+                '<td>' + fmtNumber(totals.total) + '</td>' +
+                '<td>' + totals.cost.toFixed(4) + '</td>' +
+            '</tr>';
+        }
+
+        function renderAlertEvents(rows) {
+            var body = document.getElementById('alertEventsBody');
+            if (!rows || rows.length === 0) {
+                body.innerHTML = '<tr><td colspan="3" class="text-center text-muted">最近 24 小时无告警</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(function (r) {
+                var levelCls = r.level === 'critical' ? 'label-danger'
+                    : r.level === 'warning' ? 'label-warning' : 'label-info';
+                return '<tr><td><span class="label ' + levelCls + '">' +
+                    AdminAPI.escapeHtml(r.level || '-') + '</span></td><td>' +
+                    AdminAPI.escapeHtml(r.event_type || '-') + '</td><td>' +
+                    fmtNumber(r.count) + '</td></tr>';
+            }).join('');
+        }
+
+        function renderSystemStatus(data) {
+            var body = document.getElementById('systemStatusBody');
+            var sec = data.security || {};
+            var alerting = data.alerting || {};
+            var rows = [
+                ['运行时间', fmtSeconds(data.uptimeSeconds)],
+                ['平均延迟', (data.requests && data.requests.averageLatencyMs || 0) + ' ms'],
+                ['进行中请求', fmtNumber(data.requests && data.requests.inFlight)],
+                ['速率限制桶', fmtNumber(sec.activeRateLimitBuckets)],
+                ['登录失败桶', fmtNumber(sec.activeLoginFailureBuckets)],
+                ['告警 Webhook', alerting.webhookConfigured ? '<span class="label label-success">已配置</span>' : '<span class="label label-default">未配置</span>']
+            ];
+            body.innerHTML = rows.map(function (r) {
+                return '<tr><th style="width: 50%;">' + r[0] + '</th><td>' + r[1] + '</td></tr>';
+            }).join('');
+        }
+
+        function refresh() {
+            Promise.all([
+                AdminAPI.apiFetch('/api/admin/metrics'),
+                AdminAPI.apiFetch('/api/admin/alerts?' + AdminAPI.qs({ handled: false, page: 1, pageSize: 1 }))
+            ]).then(function (results) {
+                var metrics = results[0] || {};
+                var alerts = results[1] || {};
+
+                document.getElementById('metricRequestsTotal').textContent =
+                    fmtNumber(metrics.requests && metrics.requests.total);
+                document.getElementById('metricAiCalls').textContent =
+                    fmtNumber(metrics.aiToday && metrics.aiToday.calls);
+                document.getElementById('metricAiTokens').textContent =
+                    'tokens: ' + fmtNumber(metrics.aiToday && metrics.aiToday.total_tokens);
+
+                var secTotal = (metrics.securityEvents24h || []).reduce(function (sum, r) {
+                    return sum + Number(r.count || 0);
+                }, 0);
+                document.getElementById('metricSecurityEvents').textContent = fmtNumber(secTotal);
+
+                var unhandled = (alerts.pagination && alerts.pagination.total) || 0;
+                document.getElementById('metricUnhandledAlerts').textContent = fmtNumber(unhandled);
+
+                renderTopRoutes(metrics.requests && metrics.requests.topRoutes);
+                renderAiToday(metrics.aiToday);
+                renderAiByModel(metrics.aiToday && metrics.aiToday.byModel);
+                renderAlertEvents(metrics.alertEvents24h);
+                renderSystemStatus(metrics);
+
+                document.getElementById('lastUpdated').textContent = AdminAPI.formatDate(new Date().toISOString());
+                AdminAPI.showError('#dashboardError', '');
+            }).catch(function (err) {
+                AdminAPI.showError('#dashboardError', '加载仪表盘失败：' + (err && err.message ? err.message : err));
+            });
+        }
+
+        function start() {
+            refresh();
+            timer = setInterval(refresh, REFRESH_MS);
+        }
+
+        document.addEventListener('DOMContentLoaded', start);
+        window.addEventListener('beforeunload', function () {
+            if (timer) clearInterval(timer);
+        });
+    })();
+    </script>
+</body>
+
+</html>

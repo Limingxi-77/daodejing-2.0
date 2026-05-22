@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统配置 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-cogs"></i> 系统配置</h5>
+                        <div class="ibox-tools">
+                            <button id="btnNewConfig" class="btn btn-primary btn-xs"><i class="fa fa-plus"></i> 新建配置项</button>
+                            <button id="btnReload" class="btn btn-default btn-xs"><i class="fa fa-refresh"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="alert alert-info" style="margin-bottom: 14px;">
+                            <i class="fa fa-info-circle"></i> 这里管理运行时配置（站点名、AI 默认参数、邮件配置等），值采用 JSON 存储。修改后立即生效，无需重启后端。
+                        </div>
+
+                        <div id="settingsError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 200px;">配置键</th>
+                                        <th>当前值</th>
+                                        <th>说明</th>
+                                        <th style="width: 160px;">更新时间</th>
+                                        <th style="width: 180px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="settingsBody">
+                                    <tr><td colspan="5" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var cache = {};
+
+        function formatValue(v) {
+            if (v === null || v === undefined) return '<em class="text-muted">(空)</em>';
+            if (typeof v === 'string') return AdminAPI.escapeHtml(v);
+            try {
+                return '<code style="white-space:pre-wrap;word-break:break-all;">' +
+                    AdminAPI.escapeHtml(JSON.stringify(v, null, 2)) + '</code>';
+            } catch (e) {
+                return AdminAPI.escapeHtml(String(v));
+            }
+        }
+
+        function renderRow(c) {
+            cache[c.key] = c;
+            return '<tr data-key="' + AdminAPI.escapeHtml(c.key) + '">' +
+                '<td><strong>' + AdminAPI.escapeHtml(c.key) + '</strong></td>' +
+                '<td>' + formatValue(c.value) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(c.description || '-') + '</td>' +
+                '<td><small>' + (c.updated_at ? AdminAPI.formatDate(c.updated_at) : '-') + '</small></td>' +
+                '<td>' +
+                    '<button class="btn btn-xs btn-primary btn-edit"><i class="fa fa-edit"></i> 编辑</button> ' +
+                    '<button class="btn btn-xs btn-danger btn-delete"><i class="fa fa-trash"></i> 删除</button>' +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            AdminAPI.apiFetch('/api/admin/configs')
+                .then(function (result) {
+                    cache = {};
+                    var rows = result.data || [];
+                    var body = document.getElementById('settingsBody');
+                    body.innerHTML = rows.length === 0
+                        ? '<tr><td colspan="5" class="text-center text-muted">暂无配置，点击右上角"新建配置项"添加</td></tr>'
+                        : rows.map(renderRow).join('');
+                    AdminAPI.showError('#settingsError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#settingsError', '加载失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function openEditForm(key, isNew) {
+            var c = isNew ? { key: '', value: '', description: '' } : (cache[key] || { key: key, value: '', description: '' });
+            var valueText = '';
+            if (c.value !== null && c.value !== undefined) {
+                try {
+                    valueText = typeof c.value === 'string' ? c.value : JSON.stringify(c.value, null, 2);
+                } catch (e) {
+                    valueText = String(c.value);
+                }
+            }
+
+            var html = '<form id="configEditForm" class="form-horizontal" style="padding: 15px;">' +
+                '<div class="form-group"><label class="col-sm-3 control-label">配置键</label>' +
+                  '<div class="col-sm-8">' +
+                    (isNew
+                        ? '<input name="key" class="form-control" placeholder="如 site.title" autocomplete="off">'
+                        : '<p class="form-control-static"><strong>' + AdminAPI.escapeHtml(c.key) + '</strong></p>') +
+                  '</div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">值 (JSON)</label>' +
+                  '<div class="col-sm-8">' +
+                    '<textarea name="value" class="form-control" rows="6" style="font-family:monospace;">' +
+                      AdminAPI.escapeHtml(valueText) + '</textarea>' +
+                    '<p class="help-block" style="margin-bottom:0;"><small>支持字符串、数字、对象、数组。字符串需用双引号包围，如 <code>"道德经平台"</code></small></p>' +
+                  '</div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">说明</label>' +
+                  '<div class="col-sm-8"><input name="description" class="form-control" value="' +
+                    AdminAPI.escapeHtml(c.description || '') + '"></div></div>' +
+                '<div id="cfgFormError" class="alert alert-danger" style="display:none;margin: 0 15px;"></div>' +
+                '</form>';
+
+            layer.open({
+                type: 1,
+                title: isNew ? '新建配置项' : ('编辑配置 - ' + AdminAPI.escapeHtml(c.key)),
+                area: ['600px', '440px'],
+                content: html,
+                btn: ['保存', '取消'],
+                yes: function (idx) {
+                    var form = document.getElementById('configEditForm');
+                    var configKey = isNew ? (form.key.value || '').trim() : c.key;
+                    if (!configKey) {
+                        jQuery('#cfgFormError').text('请输入配置键').show();
+                        return;
+                    }
+
+                    var rawValue = form.value.value;
+                    var parsedValue;
+                    if (!rawValue.trim()) {
+                        parsedValue = null;
+                    } else {
+                        try {
+                            parsedValue = JSON.parse(rawValue);
+                        } catch (e) {
+                            jQuery('#cfgFormError').text('值不是合法的 JSON：' + e.message).show();
+                            return;
+                        }
+                    }
+
+                    AdminAPI.apiFetch('/api/admin/configs/' + encodeURIComponent(configKey), {
+                        method: 'PUT',
+                        body: {
+                            value: parsedValue,
+                            description: form.description.value.trim() || null
+                        }
+                    }).then(function () {
+                        layer.close(idx);
+                        AdminAPI.notify('已保存', 'success');
+                        load();
+                    }).catch(function (err) {
+                        jQuery('#cfgFormError').text('保存失败：' + (err && err.message ? err.message : err)).show();
+                    });
+                }
+            });
+        }
+
+        function deleteConfig(key) {
+            AdminAPI.confirmAction('确定要彻底删除配置项 "' + key + '" 吗？此操作不可撤销。').then(function (ok) {
+                if (!ok) return;
+                AdminAPI.apiFetch('/api/admin/configs/' + encodeURIComponent(key), {
+                    method: 'DELETE'
+                }).then(function () {
+                    AdminAPI.notify('已删除', 'success');
+                    load();
+                }).catch(function (err) {
+                    AdminAPI.notify('操作失败：' + (err && err.message ? err.message : err), 'error');
+                });
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#btnNewConfig').on('click', function () { openEditForm(null, true); });
+            jQuery('#btnReload').on('click', function () { load(); });
+            jQuery('#settingsBody').on('click', '.btn-edit', function () {
+                var k = jQuery(this).closest('tr').data('key');
+                openEditForm(k, false);
+            }).on('click', '.btn-delete', function () {
+                var k = jQuery(this).closest('tr').data('key');
+                deleteConfig(k);
+            });
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

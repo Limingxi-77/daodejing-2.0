@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>告警事件 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>告警事件</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="filterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="filterHandled" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="false" selected>未处理</option>
+                                    <option value="true">已处理</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">筛选</button>
+                        </form>
+
+                        <div id="alertsError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>级别</th>
+                                        <th>类型</th>
+                                        <th>消息</th>
+                                        <th>状态</th>
+                                        <th>时间</th>
+                                        <th style="width: 140px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alertsBody">
+                                    <tr><td colspan="6" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = { page: 1, pageSize: 20, handled: 'false' };
+
+        function levelLabel(l) {
+            if (l === 'critical') return '<span class="label label-danger">' + AdminAPI.escapeHtml(l) + '</span>';
+            if (l === 'warning') return '<span class="label label-warning">' + AdminAPI.escapeHtml(l) + '</span>';
+            return '<span class="label label-info">' + AdminAPI.escapeHtml(l || '-') + '</span>';
+        }
+
+        function renderRow(a) {
+            var handled = !!a.handled;
+            var statusBadge = handled
+                ? '<span class="label label-default">已处理</span>'
+                : '<span class="label label-warning">待处理</span>';
+            return '<tr data-id="' + AdminAPI.escapeHtml(a.id) + '">' +
+                '<td>' + levelLabel(a.level) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(a.event_type || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(a.message || '-') + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + AdminAPI.formatDate(a.created_at) + '</td>' +
+                '<td>' +
+                    (handled
+                        ? '<button class="btn btn-xs btn-default btn-unhandle">标记未处理</button>'
+                        : '<button class="btn btn-xs btn-success btn-handle">标记已处理</button>') +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var q = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                handled: state.handled
+            });
+            AdminAPI.apiFetch('/api/admin/alerts?' + q)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var body = document.getElementById('alertsBody');
+                    body.innerHTML = rows.length === 0
+                        ? '<tr><td colspan="6" class="text-center text-muted">暂无告警</td></tr>'
+                        : rows.map(renderRow).join('');
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p; load();
+                    });
+                    AdminAPI.showError('#alertsError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#alertsError', '加载告警失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function mark(id, handled) {
+            AdminAPI.apiFetch('/api/admin/alerts/' + encodeURIComponent(id) + '/handled', {
+                method: 'PATCH',
+                body: { handled: handled }
+            }).then(function () {
+                AdminAPI.notify('已更新', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('操作失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#filterForm').on('submit', function (e) {
+                e.preventDefault();
+                state.handled = jQuery('#filterHandled').val();
+                state.page = 1; load();
+            });
+            jQuery('#alertsBody').on('click', '.btn-handle', function () {
+                mark(jQuery(this).closest('tr').data('id'), true);
+            }).on('click', '.btn-unhandle', function () {
+                mark(jQuery(this).closest('tr').data('id'), false);
+            });
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员账号安全 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-8">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-lock"></i> 管理员账号安全</h5>
+                        <div class="ibox-tools">
+                            <button id="btnReloadProfile" class="btn btn-default btn-xs"><i class="fa fa-refresh"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="alert alert-info">
+                            <i class="fa fa-info-circle"></i>
+                            修改账号或密码前必须输入当前密码。账号修改成功后系统会自动更新当前登录凭证。
+                        </div>
+                        <div id="profileError" class="alert alert-danger" style="display:none;"></div>
+
+                        <form id="adminProfileForm" class="form-horizontal">
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">管理员账号</label>
+                                <div class="col-sm-7">
+                                    <input id="adminUsername" name="username" class="form-control" autocomplete="username" maxlength="80" placeholder="请输入管理员账号">
+                                    <span class="help-block m-b-none">支持字母、数字、下划线、点和短横线，长度 3-80 位。</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">显示名称</label>
+                                <div class="col-sm-7">
+                                    <input id="adminDisplayName" name="display_name" class="form-control" maxlength="120" placeholder="用于后台顶部展示，可留空">
+                                </div>
+                            </div>
+
+                            <div class="hr-line-dashed"></div>
+
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">当前密码</label>
+                                <div class="col-sm-7">
+                                    <input id="currentPassword" name="currentPassword" type="password" class="form-control" autocomplete="current-password" placeholder="保存修改前必须输入当前密码">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">新密码</label>
+                                <div class="col-sm-7">
+                                    <input id="newPassword" name="newPassword" type="password" class="form-control" autocomplete="new-password" placeholder="不修改密码请留空">
+                                    <span class="help-block m-b-none">新密码至少 8 位，并同时包含字母和数字。</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">确认新密码</label>
+                                <div class="col-sm-7">
+                                    <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" autocomplete="new-password" placeholder="再次输入新密码">
+                                </div>
+                            </div>
+
+                            <div class="hr-line-dashed"></div>
+
+                            <div class="form-group">
+                                <div class="col-sm-7 col-sm-offset-3">
+                                    <button id="btnSaveProfile" class="btn btn-primary" type="submit">
+                                        <i class="fa fa-save"></i> 保存修改
+                                    </button>
+                                    <button id="btnResetProfile" class="btn btn-white" type="button">重置表单</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-4">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-id-card"></i> 当前管理员</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <dl class="dl-horizontal" style="margin-bottom:0;">
+                            <dt>账号</dt>
+                            <dd id="currentUsername">-</dd>
+                            <dt>显示名称</dt>
+                            <dd id="currentDisplayName">-</dd>
+                            <dt>角色</dt>
+                            <dd id="currentRole">-</dd>
+                            <dt>状态</dt>
+                            <dd id="currentStatus">-</dd>
+                            <dt>最后登录</dt>
+                            <dd id="currentLastLogin">-</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var currentAdmin = null;
+
+        function setError(message) {
+            AdminAPI.showError('#profileError', message || '');
+        }
+
+        function fillForm(admin) {
+            document.getElementById('adminUsername').value = admin.username || '';
+            document.getElementById('adminDisplayName').value = admin.display_name || '';
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+
+        function renderAdmin(admin) {
+            currentAdmin = admin || {};
+            document.getElementById('currentUsername').textContent = currentAdmin.username || '-';
+            document.getElementById('currentDisplayName').textContent = currentAdmin.display_name || '-';
+            document.getElementById('currentRole').textContent = currentAdmin.role_code || '-';
+            document.getElementById('currentStatus').innerHTML = currentAdmin.is_active
+                ? '<span class="label label-primary">正常</span>'
+                : '<span class="label label-danger">禁用</span>';
+            document.getElementById('currentLastLogin').textContent = AdminAPI.formatDate(currentAdmin.last_login);
+            fillForm(currentAdmin);
+        }
+
+        function updateParentHeader(admin) {
+            try {
+                var parentDoc = window.parent && window.parent.document;
+                var nameEl = parentDoc && parentDoc.getElementById('currentAdminName');
+                if (!nameEl) return;
+                var name = admin.display_name || admin.username || '管理员';
+                var role = admin.role_code ? ' · ' + admin.role_code : '';
+                nameEl.textContent = name + role;
+            } catch (e) {}
+        }
+
+        function loadProfile() {
+            setError('');
+            AdminAPI.apiFetch('/api/admin/auth/me')
+                .then(function (result) {
+                    if (!result || !result.admin) throw new Error('管理员信息为空');
+                    try { localStorage.setItem('hadmin_admin', JSON.stringify(result.admin)); } catch (e) {}
+                    renderAdmin(result.admin);
+                    updateParentHeader(result.admin);
+                })
+                .catch(function (err) {
+                    setError('加载管理员信息失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function saveProfile(event) {
+            event.preventDefault();
+            setError('');
+
+            var username = document.getElementById('adminUsername').value.trim();
+            var displayName = document.getElementById('adminDisplayName').value.trim();
+            var currentPassword = document.getElementById('currentPassword').value;
+            var newPassword = document.getElementById('newPassword').value;
+            var confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!username) {
+                setError('请输入管理员账号');
+                return;
+            }
+            if (!currentPassword) {
+                setError('请输入当前密码');
+                return;
+            }
+            if (newPassword && newPassword !== confirmPassword) {
+                setError('两次输入的新密码不一致');
+                return;
+            }
+
+            var button = document.getElementById('btnSaveProfile');
+            var originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 保存中...';
+
+            AdminAPI.apiFetch('/api/admin/auth/profile', {
+                method: 'PATCH',
+                body: {
+                    username: username,
+                    display_name: displayName,
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
+                }
+            }).then(function (result) {
+                if (result && result.token) {
+                    localStorage.setItem('hadmin_token', result.token);
+                }
+                if (result && result.admin) {
+                    localStorage.setItem('hadmin_admin', JSON.stringify(result.admin));
+                    renderAdmin(result.admin);
+                    updateParentHeader(result.admin);
+                }
+                AdminAPI.notify('管理员账号信息已更新', 'success');
+            }).catch(function (err) {
+                setError('保存失败：' + (err && err.message ? err.message : err));
+            }).then(function () {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#adminProfileForm').on('submit', saveProfile);
+            jQuery('#btnReloadProfile').on('click', loadProfile);
+            jQuery('#btnResetProfile').on('click', function () {
+                if (currentAdmin) fillForm(currentAdmin);
+                setError('');
+            });
+            loadProfile();
+        });
+    })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 供应商配置 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+
+    <style>
+        .provider-card { margin-bottom: 18px; }
+        .provider-card .ibox-title { display: flex; align-items: center; }
+        .provider-card .provider-status { margin-left: auto; }
+        .api-key-row { display: flex; align-items: center; gap: 6px; }
+        .api-key-row input { flex: 1; }
+        .test-result { margin-top: 10px; padding: 8px 12px; border-radius: 4px; font-size: 12px; }
+        .test-result.ok { background: #e7f5ee; border: 1px solid #b7dfc7; color: #1c7c4d; }
+        .test-result.err { background: #fdecec; border: 1px solid #f5b6b6; color: #a94442; }
+        .key-hint { color: #999; font-size: 12px; margin-top: 4px; }
+    </style>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-magic"></i> AI 供应商配置</h5>
+                        <div class="ibox-tools">
+                            <button id="btnReload" class="btn btn-default btn-xs"><i class="fa fa-refresh"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="alert alert-info" style="margin-bottom: 14px;">
+                            <i class="fa fa-info-circle"></i> 在此处填入各 AI 供应商的 API Key。保存后立即生效，前端"道家决策辅助"等功能将通过该 Key 调用真实 AI。
+                            数据库中保存的配置 <strong>优先于</strong> 后端 <code>.env</code> 中的环境变量。点击"测试连通"会发送一次极小请求验证 Key 是否有效。
+                        </div>
+                        <div id="globalError" class="alert alert-danger" style="display:none;"></div>
+                        <div id="providersContainer">
+                            <div class="text-center text-muted" style="padding: 40px;">加载中…</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var providerMeta = {
+            deepseek:   { label: 'DeepSeek',  hint: '从 https://platform.deepseek.com 获取，Key 格式 sk-xxxxxx',     docs: 'https://platform.deepseek.com' },
+            openrouter: { label: 'OpenRouter', hint: '从 https://openrouter.ai/keys 获取，Key 格式 sk-or-v1-xxxxxx', docs: 'https://openrouter.ai/keys' },
+            openai:     { label: 'OpenAI',    hint: '从 https://platform.openai.com/api-keys 获取，Key 格式 sk-xxxxxx',  docs: 'https://platform.openai.com/api-keys' }
+        };
+
+        function renderCard(p) {
+            var meta = providerMeta[p.name] || { label: p.name, hint: '', docs: '' };
+            var statusBadge = '';
+            if (p.hasApiKey) {
+                statusBadge = '<span class="label ' + (p.enabled ? 'label-primary' : 'label-default') + '">'
+                    + (p.enabled ? '已启用 · Key 已配置' : '已禁用')
+                    + '</span>';
+            } else if (p.envHasKey) {
+                statusBadge = '<span class="label label-warning">仅环境变量 Key</span>';
+            } else {
+                statusBadge = '<span class="label label-default">未配置</span>';
+            }
+
+            var keyMask = p.hasApiKey ? AdminAPI.escapeHtml(p.apiKeyMask || '已配置') : '<em class="text-muted">未配置</em>';
+
+            return ''
+                + '<div class="ibox provider-card" data-provider="' + p.name + '">'
+                +   '<div class="ibox-title">'
+                +     '<h5><i class="fa fa-cube"></i> ' + AdminAPI.escapeHtml(meta.label) + ' <small style="color:#999;">(' + p.name + ')</small></h5>'
+                +     '<div class="provider-status">' + statusBadge + '</div>'
+                +   '</div>'
+                +   '<div class="ibox-content">'
+                +     '<div class="form-horizontal">'
+
+                +       '<div class="form-group">'
+                +         '<label class="col-sm-2 control-label">API Key</label>'
+                +         '<div class="col-sm-10">'
+                +           '<div class="api-key-row">'
+                +             '<input type="password" class="form-control input-apikey" autocomplete="off" placeholder="' + (p.hasApiKey ? '已配置（' + AdminAPI.escapeHtml(p.apiKeyMask) + '）· 留空保持不变；填入新值则覆盖' : '请填入 ' + meta.label + ' 的 API Key') + '">'
+                +             '<button class="btn btn-default btn-sm btn-toggle-eye" type="button" title="显示/隐藏"><i class="fa fa-eye"></i></button>'
+                +           '</div>'
+                +           '<div class="key-hint">' + AdminAPI.escapeHtml(meta.hint)
+                +             (meta.docs ? ' · <a href="' + meta.docs + '" target="_blank" rel="noopener">获取入口 <i class="fa fa-external-link"></i></a>' : '')
+                +           '</div>'
+                +         '</div>'
+                +       '</div>'
+
+                +       '<div class="form-group">'
+                +         '<label class="col-sm-2 control-label">API Endpoint</label>'
+                +         '<div class="col-sm-10">'
+                +           '<input type="text" class="form-control input-baseurl" value="' + AdminAPI.escapeHtml(p.baseUrl || '') + '" placeholder="留空使用默认">'
+                +         '</div>'
+                +       '</div>'
+
+                +       '<div class="form-group">'
+                +         '<label class="col-sm-2 control-label">默认模型</label>'
+                +         '<div class="col-sm-10">'
+                +           '<input type="text" class="form-control input-model" value="' + AdminAPI.escapeHtml(p.defaultModel || '') + '" placeholder="如 deepseek-v4-flash / gpt-3.5-turbo">'
+                +         '</div>'
+                +       '</div>'
+
+                +       '<div class="form-group">'
+                +         '<label class="col-sm-2 control-label">启用</label>'
+                +         '<div class="col-sm-10">'
+                +           '<label class="checkbox-inline"><input type="checkbox" class="input-enabled"' + (p.enabled ? ' checked' : '') + '> 允许 /api/ai/chat 使用此供应商</label>'
+                +         '</div>'
+                +       '</div>'
+
+                +       '<div class="form-group">'
+                +         '<div class="col-sm-offset-2 col-sm-10">'
+                +           '<button class="btn btn-primary btn-save"><i class="fa fa-save"></i> 保存</button> '
+                +           '<button class="btn btn-info btn-test"><i class="fa fa-bolt"></i> 测试连通</button> '
+                +           (p.hasApiKey ? '<button class="btn btn-danger btn-clear-key"><i class="fa fa-eraser"></i> 清空 Key</button>' : '')
+                +         '</div>'
+                +       '</div>'
+
+                +       '<div class="result-box" style="display:none;"></div>'
+
+                +     '</div>'
+                +   '</div>'
+                + '</div>';
+        }
+
+        function load() {
+            AdminAPI.apiFetch('/api/admin/ai-providers')
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var html = rows.map(renderCard).join('');
+                    document.getElementById('providersContainer').innerHTML = html || '<div class="text-center text-muted" style="padding: 40px;">暂无供应商</div>';
+                    AdminAPI.showError('#globalError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#globalError', '加载失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function showResult($card, ok, html) {
+            var $box = $card.find('.result-box');
+            $box.removeClass('test-result ok err').addClass('test-result ' + (ok ? 'ok' : 'err')).html(html).show();
+        }
+
+        function saveProvider($card) {
+            var name = $card.data('provider');
+            var apiKey = $card.find('.input-apikey').val();
+            var baseUrl = $card.find('.input-baseurl').val();
+            var defaultModel = $card.find('.input-model').val();
+            var enabled = $card.find('.input-enabled').is(':checked');
+
+            var body = {
+                baseUrl: baseUrl,
+                defaultModel: defaultModel,
+                enabled: enabled
+            };
+            if (apiKey && apiKey.trim()) {
+                body.apiKey = apiKey.trim();
+            }
+
+            $card.find('.btn-save').prop('disabled', true);
+            AdminAPI.apiFetch('/api/admin/ai-providers/' + encodeURIComponent(name), {
+                method: 'PUT',
+                body: body
+            }).then(function (r) {
+                $card.find('.btn-save').prop('disabled', false);
+                AdminAPI.notify('已保存', 'success');
+                load();
+            }).catch(function (err) {
+                $card.find('.btn-save').prop('disabled', false);
+                showResult($card, false, '<i class="fa fa-times"></i> 保存失败：' + AdminAPI.escapeHtml(err && err.message ? err.message : String(err)));
+            });
+        }
+
+        function clearKey($card) {
+            var name = $card.data('provider');
+            AdminAPI.confirmAction('确定清空 ' + name + ' 的 API Key 吗？清空后该供应商将无法调用真实 AI（会回退到 mock 演示模式）。').then(function (ok) {
+                if (!ok) return;
+                AdminAPI.apiFetch('/api/admin/ai-providers/' + encodeURIComponent(name), {
+                    method: 'PUT',
+                    body: { clearApiKey: true }
+                }).then(function () {
+                    AdminAPI.notify('已清空', 'success');
+                    load();
+                }).catch(function (err) {
+                    AdminAPI.notify('清空失败：' + (err && err.message ? err.message : err), 'error');
+                });
+            });
+        }
+
+        function testProvider($card) {
+            var name = $card.data('provider');
+            $card.find('.btn-test').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> 测试中...');
+            showResult($card, true, '<i class="fa fa-spinner fa-spin"></i> 正在发送 ping 请求…');
+            AdminAPI.apiFetch('/api/admin/ai-providers/' + encodeURIComponent(name) + '/test', {
+                method: 'POST',
+                body: {}
+            }).then(function (r) {
+                $card.find('.btn-test').prop('disabled', false).html('<i class="fa fa-bolt"></i> 测试连通');
+                var usage = r.usage ? ' · tokens ' + (r.usage.total_tokens || 0) : '';
+                showResult($card, true,
+                    '<i class="fa fa-check-circle"></i> 连通成功 · ' + AdminAPI.escapeHtml(r.model || '')
+                    + ' · 耗时 ' + (r.durationMs || '-') + 'ms' + AdminAPI.escapeHtml(usage)
+                    + '<br><small>返回：' + AdminAPI.escapeHtml(r.content || '(空)') + '</small>'
+                );
+            }).catch(function (err) {
+                $card.find('.btn-test').prop('disabled', false).html('<i class="fa fa-bolt"></i> 测试连通');
+                showResult($card, false,
+                    '<i class="fa fa-times-circle"></i> 连通失败：' + AdminAPI.escapeHtml(err && err.message ? err.message : String(err))
+                );
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#btnReload').on('click', load);
+            jQuery('#providersContainer').on('click', '.btn-save', function () {
+                saveProvider(jQuery(this).closest('.provider-card'));
+            }).on('click', '.btn-test', function () {
+                testProvider(jQuery(this).closest('.provider-card'));
+            }).on('click', '.btn-clear-key', function () {
+                clearKey(jQuery(this).closest('.provider-card'));
+            }).on('click', '.btn-toggle-eye', function () {
+                var $input = jQuery(this).closest('.api-key-row').find('.input-apikey');
+                var isPwd = $input.attr('type') === 'password';
+                $input.attr('type', isPwd ? 'text' : 'password');
+                jQuery(this).find('i').toggleClass('fa-eye fa-eye-slash');
+            });
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

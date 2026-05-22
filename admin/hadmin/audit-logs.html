@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>审计日志 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>审计日志</h5>
+                        <div class="ibox-tools">
+                            <small class="text-muted">来源 admin_operation_logs</small>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div id="auditError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>管理员</th>
+                                        <th>操作</th>
+                                        <th>对象类型</th>
+                                        <th>对象 ID</th>
+                                        <th>IP</th>
+                                        <th style="width: 80px;">详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditBody">
+                                    <tr><td colspan="7" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = { page: 1, pageSize: 20 };
+        var rowCache = {};
+
+        function renderRow(log) {
+            rowCache[log.id] = log;
+            return '<tr data-id="' + AdminAPI.escapeHtml(log.id) + '">' +
+                '<td>' + AdminAPI.formatDate(log.created_at) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(log.admin_username || log.admin_id || '-') + '</td>' +
+                '<td><code>' + AdminAPI.escapeHtml(log.action || '-') + '</code></td>' +
+                '<td>' + AdminAPI.escapeHtml(log.target_type || '-') + '</td>' +
+                '<td><small>' + AdminAPI.escapeHtml(log.target_id || '-') + '</small></td>' +
+                '<td>' + AdminAPI.escapeHtml(log.ip_address || '-') + '</td>' +
+                '<td><button class="btn btn-xs btn-default btn-detail">查看</button></td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var q = AdminAPI.qs({ page: state.page, pageSize: state.pageSize });
+            AdminAPI.apiFetch('/api/admin/audit-logs?' + q)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    rowCache = {};
+                    var body = document.getElementById('auditBody');
+                    body.innerHTML = rows.length === 0
+                        ? '<tr><td colspan="7" class="text-center text-muted">暂无日志</td></tr>'
+                        : rows.map(renderRow).join('');
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p; load();
+                    });
+                    AdminAPI.showError('#auditError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#auditError', '加载日志失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function showDetail(id) {
+            var log = rowCache[id];
+            if (!log) return;
+            var before = log.before_data || log.before || null;
+            var after = log.after_data || log.after || null;
+            try { if (typeof before === 'string') before = JSON.parse(before); } catch (e) {}
+            try { if (typeof after === 'string') after = JSON.parse(after); } catch (e) {}
+
+            var html = '<div style="padding: 15px;">' +
+                '<p><strong>操作：</strong>' + AdminAPI.escapeHtml(log.action || '-') + '</p>' +
+                '<p><strong>时间：</strong>' + AdminAPI.formatDate(log.created_at) + '</p>' +
+                '<p><strong>管理员：</strong>' + AdminAPI.escapeHtml(log.admin_username || log.admin_id || '-') + '</p>' +
+                '<p><strong>对象：</strong>' + AdminAPI.escapeHtml(log.target_type || '-') + ' / ' + AdminAPI.escapeHtml(log.target_id || '-') + '</p>' +
+                '<p><strong>IP：</strong>' + AdminAPI.escapeHtml(log.ip_address || '-') + '</p>' +
+                '<p><strong>UA：</strong><small>' + AdminAPI.escapeHtml(log.user_agent || '-') + '</small></p>' +
+                '<hr>' +
+                '<h5>变更前</h5><pre style="max-height: 200px; overflow:auto;">' + AdminAPI.escapeHtml(JSON.stringify(before, null, 2)) + '</pre>' +
+                '<h5>变更后</h5><pre style="max-height: 200px; overflow:auto;">' + AdminAPI.escapeHtml(JSON.stringify(after, null, 2)) + '</pre>' +
+                '</div>';
+
+            layer.open({
+                type: 1,
+                title: '审计日志详情',
+                area: ['600px', '600px'],
+                content: html
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#auditBody').on('click', '.btn-detail', function () {
+                showDetail(jQuery(this).closest('tr').data('id'));
+            });
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>

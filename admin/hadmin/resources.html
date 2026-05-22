@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资源管理 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>资源管理</h5>
+                        <div class="ibox-tools">
+                            <button type="button" class="btn btn-success btn-xs" id="newResourceBtn">
+                                <i class="fa fa-plus"></i> 新建资源
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="filterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>类型：</label>
+                                <select id="filterType" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="article">文章</option>
+                                    <option value="video">视频</option>
+                                    <option value="audio">音频</option>
+                                    <option value="document">文档</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>朝代：</label>
+                                <input id="filterEra" type="text" class="form-control" placeholder="朝代">
+                            </div>
+                            <div class="form-group">
+                                <label>作者：</label>
+                                <input id="filterAuthor" type="text" class="form-control" placeholder="作者">
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> 筛选</button>
+                            <button type="button" id="resetBtn" class="btn btn-default">重置</button>
+                        </form>
+
+                        <div id="resourcesError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>标题</th>
+                                        <th>分类</th>
+                                        <th>类型</th>
+                                        <th>作者/朝代</th>
+                                        <th>状态</th>
+                                        <th>创建时间</th>
+                                        <th style="width: 200px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resourcesBody">
+                                    <tr><td colspan="7" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = {
+            page: 1,
+            pageSize: 20,
+            type: '',
+            era: '',
+            author: ''
+        };
+        var categoriesCache = [];
+
+        function loadCategories() {
+            return AdminAPI.apiFetch('/api/admin/resources/categories')
+                .then(function (result) {
+                    categoriesCache = result.data || [];
+                })
+                .catch(function () {
+                    categoriesCache = [];
+                });
+        }
+
+        function statusLabel(s) {
+            if (s === 'published') return '<span class="label label-primary">已发布</span>';
+            if (s === 'archived') return '<span class="label label-default">已归档</span>';
+            return '<span class="label label-warning">草稿</span>';
+        }
+
+        function renderRow(r) {
+            return '<tr data-id="' + AdminAPI.escapeHtml(r.id) + '">' +
+                '<td>' + AdminAPI.escapeHtml(r.title || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(r.categoryName || r.category_name || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(r.resourceType || r.resource_type || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml((r.author || '-') + ' / ' + (r.era || '-')) + '</td>' +
+                '<td>' + statusLabel(r.status) + '</td>' +
+                '<td>' + AdminAPI.formatDate(r.createdAt || r.created_at) + '</td>' +
+                '<td>' +
+                    '<button class="btn btn-xs btn-primary btn-edit"><i class="fa fa-edit"></i> 编辑</button> ' +
+                    '<button class="btn btn-xs btn-danger btn-delete"><i class="fa fa-trash"></i> 删除</button>' +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var query = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                type: state.type,
+                era: state.era,
+                author: state.author
+            });
+            AdminAPI.apiFetch('/api/admin/resources?' + query)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var body = document.getElementById('resourcesBody');
+                    if (rows.length === 0) {
+                        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>';
+                    } else {
+                        body.innerHTML = rows.map(renderRow).join('');
+                    }
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p;
+                        load();
+                    });
+                    AdminAPI.showError('#resourcesError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#resourcesError', '加载资源失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function buildCategoryOptions(selectedId) {
+            var opts = ['<option value="">未分类</option>'];
+            categoriesCache.forEach(function (c) {
+                var sel = (c.id === selectedId) ? 'selected' : '';
+                opts.push('<option value="' + AdminAPI.escapeHtml(c.id) + '" ' + sel + '>' +
+                    AdminAPI.escapeHtml(c.name) + '</option>');
+            });
+            return opts.join('');
+        }
+
+        function openForm(mode, resource) {
+            resource = resource || {};
+            var isEdit = mode === 'edit';
+            var title = isEdit ? ('编辑资源 - ' + (resource.title || '')) : '新建资源';
+            var html = '<form id="resourceForm" class="form-horizontal" style="padding: 15px;">' +
+                '<div class="form-group"><label class="col-sm-3 control-label">标题 *</label>' +
+                  '<div class="col-sm-8"><input name="title" class="form-control" required value="' + AdminAPI.escapeHtml(resource.title || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">分类</label>' +
+                  '<div class="col-sm-8"><select name="categoryId" class="form-control">' +
+                    buildCategoryOptions(resource.categoryId || resource.category_id) +
+                  '</select></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">类型</label>' +
+                  '<div class="col-sm-8"><select name="resourceType" class="form-control">' +
+                    ['article','video','audio','document'].map(function (t) {
+                        var sel = ((resource.resourceType || resource.resource_type || 'article') === t) ? 'selected' : '';
+                        return '<option value="' + t + '" ' + sel + '>' + t + '</option>';
+                    }).join('') +
+                  '</select></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">作者</label>' +
+                  '<div class="col-sm-8"><input name="author" class="form-control" value="' + AdminAPI.escapeHtml(resource.author || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">朝代</label>' +
+                  '<div class="col-sm-8"><input name="era" class="form-control" value="' + AdminAPI.escapeHtml(resource.era || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">摘要</label>' +
+                  '<div class="col-sm-8"><textarea name="summary" class="form-control" rows="2">' + AdminAPI.escapeHtml(resource.summary || '') + '</textarea></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">正文</label>' +
+                  '<div class="col-sm-8"><textarea name="content" class="form-control" rows="4">' + AdminAPI.escapeHtml(resource.content || '') + '</textarea></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">封面 URL</label>' +
+                  '<div class="col-sm-8"><input name="coverUrl" class="form-control" value="' + AdminAPI.escapeHtml(resource.coverUrl || resource.cover_url || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">文件 URL</label>' +
+                  '<div class="col-sm-8"><input name="fileUrl" class="form-control" value="' + AdminAPI.escapeHtml(resource.fileUrl || resource.file_url || '') + '"></div></div>' +
+                '<div class="form-group"><label class="col-sm-3 control-label">状态</label>' +
+                  '<div class="col-sm-8"><select name="status" class="form-control">' +
+                    [['draft','草稿'],['published','已发布'],['archived','已归档']].map(function (pair) {
+                        var sel = ((resource.status || 'draft') === pair[0]) ? 'selected' : '';
+                        return '<option value="' + pair[0] + '" ' + sel + '>' + pair[1] + '</option>';
+                    }).join('') +
+                  '</select></div></div>' +
+                '<div id="formError" class="alert alert-danger" style="display:none;margin: 0 15px;"></div>' +
+                '</form>';
+
+            layer.open({
+                type: 1,
+                title: title,
+                area: ['620px', '650px'],
+                content: html,
+                btn: ['保存', '取消'],
+                yes: function (idx) {
+                    var form = document.getElementById('resourceForm');
+                    var body = {
+                        title: form.title.value.trim(),
+                        categoryId: form.categoryId.value || null,
+                        resourceType: form.resourceType.value,
+                        author: form.author.value.trim() || null,
+                        era: form.era.value.trim() || null,
+                        summary: form.summary.value,
+                        content: form.content.value,
+                        coverUrl: form.coverUrl.value.trim(),
+                        fileUrl: form.fileUrl.value.trim(),
+                        status: form.status.value
+                    };
+                    if (!body.title) {
+                        jQuery('#formError').text('标题不能为空').show();
+                        return;
+                    }
+
+                    var url, method;
+                    if (isEdit) {
+                        url = '/api/admin/resources/' + encodeURIComponent(resource.id);
+                        method = 'PATCH';
+                    } else {
+                        url = '/api/admin/resources';
+                        method = 'POST';
+                    }
+
+                    AdminAPI.apiFetch(url, { method: method, body: body })
+                        .then(function () {
+                            layer.close(idx);
+                            AdminAPI.notify('已保存', 'success');
+                            load();
+                        })
+                        .catch(function (err) {
+                            jQuery('#formError').text('保存失败：' + (err && err.message ? err.message : err)).show();
+                        });
+                }
+            });
+        }
+
+        function deleteResource(id) {
+            AdminAPI.confirmAction('确定要删除该资源吗？此操作不可恢复。').then(function (ok) {
+                if (!ok) return;
+                AdminAPI.apiFetch('/api/admin/resources/' + encodeURIComponent(id), { method: 'DELETE' })
+                    .then(function () {
+                        AdminAPI.notify('已删除', 'success');
+                        load();
+                    })
+                    .catch(function (err) {
+                        AdminAPI.notify('删除失败：' + (err && err.message ? err.message : err), 'error');
+                    });
+            });
+        }
+
+        function fetchOneResource(id) {
+            // 从当前已渲染列表的资源对象重新拉详情 —— /api/admin/resources 只返回列表，
+            // 我们用列表数据中的最新一条作为编辑初值
+            var query = AdminAPI.qs({ page: 1, pageSize: state.pageSize });
+            return AdminAPI.apiFetch('/api/admin/resources?' + query).then(function (result) {
+                return (result.data || []).filter(function (r) { return r.id === id; })[0];
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#filterForm').on('submit', function (e) {
+                e.preventDefault();
+                state.type = jQuery('#filterType').val();
+                state.era = jQuery('#filterEra').val().trim();
+                state.author = jQuery('#filterAuthor').val().trim();
+                state.page = 1;
+                load();
+            });
+            jQuery('#resetBtn').on('click', function () {
+                jQuery('#filterType').val('');
+                jQuery('#filterEra').val('');
+                jQuery('#filterAuthor').val('');
+                state.type = state.era = state.author = '';
+                state.page = 1;
+                load();
+            });
+            jQuery('#newResourceBtn').on('click', function () { openForm('new'); });
+            jQuery('#resourcesBody').on('click', '.btn-edit', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                fetchOneResource(id).then(function (r) {
+                    openForm('edit', r || { id: id });
+                });
+            });
+            jQuery('#resourcesBody').on('click', '.btn-delete', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                deleteResource(id);
+            });
+
+            loadCategories().then(load);
+        });
+    })();
+    </script>
+</body>
+
+</html>

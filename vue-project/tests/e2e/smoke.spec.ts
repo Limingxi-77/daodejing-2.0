@@ -1,0 +1,139 @@
+import { expect, test, type Page } from '@playwright/test'
+
+async function preparePage(page: Page) {
+  await page.route('https://cdnjs.cloudflare.com/**', async route => {
+    const url = route.request().url()
+    if (url.endsWith('.css')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/css',
+        body: ''
+      })
+      return
+    }
+
+    await route.fulfill({
+      status: 204,
+      body: ''
+    })
+  })
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'alert', {
+      configurable: true,
+      value: () => undefined
+    })
+
+    Object.defineProperty(window, 'confirm', {
+      configurable: true,
+      value: () => true
+    })
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async () => undefined,
+        readText: async () => ''
+      }
+    })
+
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true,
+      value: function play() {
+        this.dispatchEvent(new Event('play'))
+        return Promise.resolve()
+      }
+    })
+
+    Object.defineProperty(HTMLMediaElement.prototype, 'pause', {
+      configurable: true,
+      value: function pause() {
+        this.dispatchEvent(new Event('pause'))
+      }
+    })
+  })
+}
+
+async function openRoute(page: Page, path: string, testId: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(
+    targetTestId => Boolean(document.querySelector(`[data-testid="${targetTestId}"]`)),
+    testId,
+    { timeout: 20_000 }
+  )
+  await expect(page.getByTestId(testId)).toBeVisible({ timeout: 20_000 })
+}
+
+test('auth routes render expected forms', async ({ page }) => {
+  await preparePage(page)
+
+  await openRoute(page, '/login', 'login-page')
+  await page.getByTestId('login-email').fill('user@example.com')
+  await page.getByTestId('login-password').fill('StrongPass123!')
+  await page.getByTestId('login-to-register').click()
+  await page.waitForFunction(() => window.location.pathname === '/register', null, {
+    timeout: 15_000
+  })
+
+  await expect(page.getByTestId('register-page')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('register-name').fill('playwright-user')
+  await page.getByTestId('register-email').fill('playwright@example.com')
+  await page.getByTestId('register-password').fill('StrongPass123!')
+  await page.getByTestId('register-confirm-password').fill('StrongPass123!')
+  await expect(page.getByTestId('register-submit')).toBeEnabled()
+})
+
+test('community page supports local compose fallback', async ({ page }) => {
+  await preparePage(page)
+
+  await openRoute(page, '/community', 'community-page')
+
+  const posts = page.getByTestId('community-post-item')
+  const postList = page.getByTestId('community-post-list')
+  await expect(posts.first()).toBeVisible({ timeout: 15_000 })
+  const initialCount = await posts.count()
+  const title = `playwright-community-post-${Date.now()}`
+
+  await page.getByTestId('community-post-title').fill(title)
+  await page.getByTestId('community-post-content').fill('playwright smoke content')
+  await page.getByTestId('community-post-tags').fill('playwright smoke')
+  await page.locator('[data-testid="community-post-form"] button[type="submit"]').click()
+
+  await expect(page.getByTestId('community-post-title')).toHaveValue('', { timeout: 15_000 })
+  await expect(postList).toContainText(title, { timeout: 15_000 })
+  await expect
+    .poll(async () => posts.count(), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(initialCount + 1)
+  await expect(posts.first()).toContainText(title, { timeout: 15_000 })
+
+  await page.getByTestId('community-search').fill(title)
+  await expect(posts).toHaveCount(1, { timeout: 15_000 })
+  await expect(posts.first()).toContainText(title)
+})
+
+test('resource library filters local data', async ({ page }) => {
+  await preparePage(page)
+
+  await openRoute(page, '/resource-library', 'resource-library-page')
+  await expect(page.getByTestId('resource-card').first()).toBeVisible({ timeout: 15_000 })
+
+  await page.getByTestId('resource-hero-search').fill('王弼')
+  await expect(page.getByTestId('resource-card-list')).toContainText('王弼', { timeout: 15_000 })
+
+  await page.getByTestId('resource-sort').selectOption('downloads')
+  await expect(page.getByTestId('resource-card').first()).toBeVisible({ timeout: 15_000 })
+})
+
+test('tts page supports custom text generation smoke flow', async ({ page }) => {
+  await preparePage(page)
+
+  await openRoute(page, '/tts', 'tts-page')
+
+  await page.getByTestId('tts-mode-custom').click()
+  await page.getByTestId('tts-custom-text').fill('Playwright TTS smoke text')
+  await expect(page.getByTestId('tts-display-text')).toHaveValue('Playwright TTS smoke text')
+
+  await page.getByTestId('tts-generate').click()
+  await expect(page.getByTestId('tts-download')).toBeEnabled({ timeout: 15_000 })
+  await expect(page.getByTestId('tts-history-list').locator('li')).toHaveCount(1, { timeout: 15_000 })
+})

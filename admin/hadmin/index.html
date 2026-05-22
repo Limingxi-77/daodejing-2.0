@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="renderer" content="webkit">
+
+    <title>道德经平台 - 后台管理</title>
+
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+
+    <!--[if lt IE 9]>
+    <meta http-equiv="refresh" content="0;ie.html" />
+    <![endif]-->
+
+    <link rel="shortcut icon" href="favicon.ico"> <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="fixed-sidebar full-height-layout gray-bg" style="overflow:hidden">
+    <div id="wrapper">
+        <!--左侧导航开始-->
+        <nav class="navbar-default navbar-static-side" role="navigation">
+            <div class="nav-close"><i class="fa fa-times-circle"></i>
+            </div>
+            <div class="sidebar-collapse">
+                <ul class="nav" id="side-menu">
+                    <li class="nav-header">
+                        <div class="dropdown profile-element">
+                            <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+                                <span class="clear">
+                                    <span class="block m-t-xs" style="font-size:18px;">
+                                        <i class="fa fa-book"></i>
+                                        <strong class="font-bold">道德经平台</strong>
+                                    </span>
+                                </span>
+                            </a>
+                        </div>
+                        <div class="logo-element">道德经
+                        </div>
+                    </li>
+                    <li class="hidden-folded padder m-t m-b-sm text-muted text-xs">
+                        <span class="ng-scope">数据概览</span>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="dashboard.html">
+                            <i class="fa fa-dashboard"></i>
+                            <span class="nav-label">仪表盘</span>
+                        </a>
+                    </li>
+                    <li class="line dk"></li>
+                    <li class="hidden-folded padder m-t m-b-sm text-muted text-xs">
+                        <span class="ng-scope">业务管理</span>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="users.html">
+                            <i class="fa fa-users"></i>
+                            <span class="nav-label">用户管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="resources.html">
+                            <i class="fa fa-folder-open"></i>
+                            <span class="nav-label">资源管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="learning-paths.html">
+                            <i class="fa fa-graduation-cap"></i>
+                            <span class="nav-label">学习路径</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="community-posts.html">
+                            <i class="fa fa-comments"></i>
+                            <span class="nav-label">帖子管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="community-reports.html">
+                            <i class="fa fa-flag"></i>
+                            <span class="nav-label">举报管理</span>
+                        </a>
+                    </li>
+                    <li class="line dk"></li>
+                    <li class="hidden-folded padder m-t m-b-sm text-muted text-xs">
+                        <span class="ng-scope">系统运维</span>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="alerts.html">
+                            <i class="fa fa-bell"></i>
+                            <span class="nav-label">告警事件</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="runtime-logs.html">
+                            <i class="fa fa-file-text-o"></i>
+                            <span class="nav-label">运行日志</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="audit-logs.html">
+                            <i class="fa fa-history"></i>
+                            <span class="nav-label">审计日志</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="tts-tasks.html">
+                            <i class="fa fa-volume-up"></i>
+                            <span class="nav-label">TTS 任务</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="ai-config.html">
+                            <i class="fa fa-magic"></i>
+                            <span class="nav-label">AI 供应商</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="admin-profile.html">
+                            <i class="fa fa-lock"></i>
+                            <span class="nav-label">账号安全</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="J_menuItem" href="settings.html">
+                            <i class="fa fa-cogs"></i>
+                            <span class="nav-label">系统配置</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        <!--左侧导航结束-->
+        <!--右侧部分开始-->
+        <div id="page-wrapper" class="gray-bg dashbard-1">
+            <div class="row border-bottom">
+                <nav class="navbar navbar-static-top" role="navigation" style="margin-bottom: 0">
+                    <div class="navbar-header">
+                        <a class="navbar-minimalize minimalize-styl-2 btn btn-info" href="#"><i class="fa fa-bars"></i></a>
+                        <span style="line-height: 60px; margin-left: 12px; font-weight: 600; color: #676a6c;">道德经平台 · 后台管理</span>
+                    </div>
+                    <ul class="nav navbar-top-links navbar-right">
+                        <li>
+                            <a id="currentAdminInfo" href="javascript:void(0)" style="cursor: default;">
+                                <i class="fa fa-user-circle"></i>
+                                <span id="currentAdminName">管理员</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a id="logoutBtn" href="javascript:void(0)">
+                                <i class="fa fa-sign-out"></i> 退出登录
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="row J_mainContent" id="content-main">
+                <iframe id="J_iframe" width="100%" height="100%" src="dashboard.html" frameborder="0" data-id="dashboard.html" seamless></iframe>
+            </div>
+        </div>
+        <!--右侧部分结束-->
+    </div>
+
+    <!-- 全局js -->
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/metisMenu/jquery.metisMenu.js"></script>
+    <script src="js/plugins/slimscroll/jquery.slimscroll.min.js"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <!-- 自定义js -->
+    <script src="js/hAdmin.js?v=4.1.0"></script>
+    <script type="text/javascript" src="js/index.js"></script>
+
+    <!-- 第三方插件 -->
+    <script src="js/plugins/pace/pace.min.js"></script>
+
+    <script>
+    (function () {
+        var cached = (window.AdminAPI && AdminAPI.getAdmin()) || {};
+        var nameEl = document.getElementById('currentAdminName');
+
+        function renderAdmin(a) {
+            if (!nameEl || !a) return;
+            var name = a.display_name || a.username || '管理员';
+            var role = a.role_code ? ' · ' + a.role_code : '';
+            nameEl.textContent = name + role;
+        }
+        renderAdmin(cached);
+
+        if (window.AdminAPI && AdminAPI.apiFetch) {
+            AdminAPI.apiFetch('/api/admin/auth/me').then(function (result) {
+                if (result && result.admin) {
+                    try { localStorage.setItem('hadmin_admin', JSON.stringify(result.admin)); } catch (e) {}
+                    renderAdmin(result.admin);
+                }
+            }).catch(function (err) {
+                if (err && (err.status === 401 || err.status === 403 || err.status === 404)) {
+                    AdminAPI.logout();
+                }
+            });
+        }
+
+        var logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function () {
+                if (typeof layer !== 'undefined' && layer.confirm) {
+                    layer.confirm('确定要退出登录吗？', { btn: ['确定', '取消'] }, function (idx) {
+                        layer.close(idx);
+                        AdminAPI.logout();
+                    });
+                } else if (window.confirm('确定要退出登录吗？')) {
+                    AdminAPI.logout();
+                }
+            });
+        }
+    })();
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "daodejing-2.0-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend start",
+    "backend:check": "npm --prefix backend run check",
+    "backend:migrate": "npm --prefix backend run migrate",
+    "backend:smoke": "npm --prefix backend run smoke",
+    "backend:smoke:basic": "npm --prefix backend run smoke:basic",
+    "backend:smoke:integration": "npm --prefix backend run smoke:integration",
+    "backend:seed:smoke": "npm --prefix backend run seed:smoke",
+    "backend:test": "npm --prefix backend test",
+    "backend:worker:tts": "npm --prefix backend run worker:tts",
+    "frontend:dev": "npm --prefix vue-project run dev",
+    "frontend:build": "npm --prefix vue-project run build",
+    "frontend:e2e": "npm --prefix vue-project run e2e",
+    "frontend:e2e:integration": "npm --prefix vue-project run e2e:integration",
+    "frontend:e2e:install": "npm --prefix vue-project run e2e:install",
+    "frontend:type-check": "npm --prefix vue-project run type-check",
+    "smoke:local": "npm run backend:smoke:basic && npm run frontend:e2e",
+    "smoke:integration": "npm run backend:seed:smoke && npm run backend:smoke:integration && npm run frontend:e2e:integration",
+    "check": "npm run backend:check && npm run frontend:type-check",
+    "check:ci": "npm run backend:check && npm run backend:test && npm run frontend:type-check && npm run frontend:build"
+  }
+}

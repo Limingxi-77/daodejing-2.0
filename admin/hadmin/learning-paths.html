@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习路径 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+
+    <style>
+        .path-card {
+            border: 1px solid #e7eaec;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 15px;
+            background: #fff;
+        }
+        .path-card .path-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            margin-right: 10px;
+        }
+        .path-green { background: #1ab394; }
+        .path-orange { background: #f8ac59; }
+        .path-purple { background: #8b5cf6; }
+        .path-gray { background: #999; }
+        .path-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(80px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .path-metric {
+            background: #f5f7fa;
+            border-radius: 4px;
+            padding: 8px;
+            text-align: center;
+        }
+        .path-metric strong {
+            display: block;
+            font-size: 18px;
+            color: #1ab394;
+        }
+        .path-metric small {
+            color: #888;
+        }
+        .chapter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 8px;
+        }
+        .chapter-cell {
+            padding: 8px 6px;
+            border-radius: 4px;
+            background: #f5f5f5;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+        .chapter-cell.active {
+            background: #e8f6f3;
+            border-color: #1ab394;
+        }
+        .chapter-cell strong {
+            display: block;
+            color: #676a6c;
+        }
+        .progress-mini {
+            margin: 4px 0 0;
+            height: 6px;
+        }
+        @media (max-width: 768px) {
+            .path-metrics {
+                grid-template-columns: repeat(2, minmax(80px, 1fr));
+            }
+        }
+    </style>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div id="learningError" class="alert alert-danger" style="display:none;"></div>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>学习路径概览</h5>
+                        <div class="ibox-tools">
+                            <button type="button" class="btn btn-primary btn-xs" id="refreshBtn">
+                                <i class="fa fa-refresh"></i> 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div id="pathsBox" class="row">
+                            <div class="col-sm-12 text-center text-muted">加载中…</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>章节完成热度</h5>
+                        <div class="ibox-tools">
+                            <small class="text-muted">基于 learning_progress 表</small>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div id="chapterHeatmap" class="chapter-grid">
+                            <div class="text-muted">加载中…</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>用户学习进度</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="filterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>路径：</label>
+                                <select id="filterCourse" class="form-control">
+                                    <option value="">全部</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="filterCompleted" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="true">已完成</option>
+                                    <option value="false">学习中</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <input id="filterKeyword" class="form-control" placeholder="用户 / 邮箱 / 章节">
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> 筛选</button>
+                            <button type="button" id="resetBtn" class="btn btn-default">重置</button>
+                        </form>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>用户</th>
+                                        <th>路径</th>
+                                        <th>章节</th>
+                                        <th style="width: 180px;">进度</th>
+                                        <th>状态</th>
+                                        <th>最近学习</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="progressBody">
+                                    <tr><td colspan="6" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = {
+            page: 1,
+            pageSize: 20,
+            courseId: '',
+            completed: '',
+            keyword: ''
+        };
+        var pathCache = [];
+        var progressRows = [];
+
+        function fmtNumber(v) {
+            if (v === null || v === undefined || isNaN(Number(v))) return '0';
+            return Number(v).toLocaleString();
+        }
+
+        function colorClass(color) {
+            return 'path-' + (color || 'gray');
+        }
+
+        function progressBar(progress) {
+            progress = Math.max(0, Math.min(100, Number(progress || 0)));
+            var cls = progress >= 100 ? 'progress-bar-success'
+                : progress >= 60 ? 'progress-bar-info'
+                : progress >= 30 ? 'progress-bar-warning'
+                : 'progress-bar-danger';
+            return '<div class="progress progress-mini">' +
+                '<div class="progress-bar ' + cls + '" style="width:' + progress + '%"></div>' +
+            '</div>';
+        }
+
+        function renderPathCard(path) {
+            return '<div class="col-lg-4 col-md-6">' +
+                '<div class="path-card">' +
+                    '<div class="media">' +
+                        '<div class="pull-left path-icon ' + colorClass(path.color) + '">' +
+                            '<i class="fa ' + AdminAPI.escapeHtml(path.icon || 'fa-graduation-cap') + '"></i>' +
+                        '</div>' +
+                        '<div class="media-body">' +
+                            '<h4 style="margin: 2px 0 6px;">' + AdminAPI.escapeHtml(path.name || path.id) + '</h4>' +
+                            '<p class="text-muted" style="min-height: 40px;">' + AdminAPI.escapeHtml(path.description || '') + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="path-metrics">' +
+                        '<div class="path-metric"><strong>' + fmtNumber(path.totalLessons) + '</strong><small>章节数</small></div>' +
+                        '<div class="path-metric"><strong>' + fmtNumber(path.learnerCount) + '</strong><small>学习用户</small></div>' +
+                        '<div class="path-metric"><strong>' + fmtNumber(path.completedRecords) + '</strong><small>完成记录</small></div>' +
+                        '<div class="path-metric"><strong>' + Number(path.averageProgress || 0).toFixed(1) + '%</strong><small>平均进度</small></div>' +
+                    '</div>' +
+                    '<div style="margin-top: 12px;">' +
+                        '<small class="text-muted">最近学习：' + AdminAPI.escapeHtml(path.lastAccessed ? AdminAPI.formatDate(path.lastAccessed) : '-') + '</small>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
+
+        function renderPaths(paths) {
+            var box = document.getElementById('pathsBox');
+            if (!paths || paths.length === 0) {
+                box.innerHTML = '<div class="col-sm-12 text-center text-muted">暂无学习路径数据</div>';
+                return;
+            }
+            box.innerHTML = paths.map(renderPathCard).join('');
+        }
+
+        function renderCourseOptions(paths) {
+            var current = state.courseId;
+            var opts = ['<option value="">全部</option>'];
+            paths.forEach(function (path) {
+                var selected = current === path.id ? 'selected' : '';
+                opts.push('<option value="' + AdminAPI.escapeHtml(path.id) + '" ' + selected + '>' +
+                    AdminAPI.escapeHtml(path.name || path.id) + '</option>');
+            });
+            document.getElementById('filterCourse').innerHTML = opts.join('');
+        }
+
+        function renderChapterHeatmap(rows) {
+            var box = document.getElementById('chapterHeatmap');
+            rows = rows || [];
+            if (rows.length === 0) {
+                box.innerHTML = '<div class="text-muted">暂无章节进度记录</div>';
+                return;
+            }
+            box.innerHTML = rows.map(function (item) {
+                return '<div class="chapter-cell ' + (item.averageProgress > 0 ? 'active' : '') + '">' +
+                    '<strong>' + AdminAPI.escapeHtml(item.chapterId) + '</strong>' +
+                    '<small title="' + AdminAPI.escapeHtml(item.courseName) + '">' + AdminAPI.escapeHtml(item.courseId) + '</small>' +
+                    progressBar(item.averageProgress) +
+                    '<small>' + item.completedRecords + '/' + item.progressRecords + ' 完成</small>' +
+                '</div>';
+            }).join('');
+        }
+
+        function renderProgressRow(row) {
+            var user = row.displayName || row.username || row.email || row.userId || '-';
+            var status = row.completed
+                ? '<span class="label label-primary">已完成</span>'
+                : '<span class="label label-warning">学习中</span>';
+            return '<tr>' +
+                '<td>' + AdminAPI.escapeHtml(user) + '<br><small class="text-muted">' + AdminAPI.escapeHtml(row.email || row.userId || '') + '</small></td>' +
+                '<td>' + AdminAPI.escapeHtml(row.courseName || row.courseId || '-') + '<br><small class="text-muted">' + AdminAPI.escapeHtml(row.courseId || '') + '</small></td>' +
+                '<td>' + AdminAPI.escapeHtml(row.chapterId || '-') + '</td>' +
+                '<td><strong>' + Number(row.progress || 0) + '%</strong>' + progressBar(row.progress) + '</td>' +
+                '<td>' + status + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(row.lastAccessed ? AdminAPI.formatDate(row.lastAccessed) : '-') + '</td>' +
+            '</tr>';
+        }
+
+        function loadPaths() {
+            return AdminAPI.apiFetch('/api/admin/learning/paths')
+                .then(function (result) {
+                    pathCache = result.data || [];
+                    renderPaths(pathCache);
+                    renderCourseOptions(pathCache);
+                    AdminAPI.showError('#learningError', '');
+                });
+        }
+
+        function loadProgress() {
+            var query = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                courseId: state.courseId,
+                completed: state.completed,
+                keyword: state.keyword
+            });
+            return AdminAPI.apiFetch('/api/admin/learning/progress?' + query)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    progressRows = rows;
+                    var body = document.getElementById('progressBody');
+                    if (progressRows.length === 0) {
+                        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">暂无数据</td></tr>';
+                    } else {
+                        body.innerHTML = progressRows.map(renderProgressRow).join('');
+                    }
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p;
+                        loadProgress();
+                    });
+                    AdminAPI.showError('#learningError', '');
+                });
+        }
+
+        function loadChapters() {
+            var query = AdminAPI.qs({ courseId: state.courseId });
+            return AdminAPI.apiFetch('/api/admin/learning/chapters?' + query)
+                .then(function (result) {
+                    renderChapterHeatmap(result.data || []);
+                });
+        }
+
+        function refresh() {
+            loadPaths()
+                .then(function () { return Promise.all([loadProgress(), loadChapters()]); })
+                .catch(function (err) {
+                    AdminAPI.showError('#learningError', '加载学习路径失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        jQuery(function () {
+            jQuery('#filterForm').on('submit', function (e) {
+                e.preventDefault();
+                state.courseId = jQuery('#filterCourse').val();
+                state.completed = jQuery('#filterCompleted').val();
+                state.keyword = jQuery('#filterKeyword').val().trim();
+                state.page = 1;
+                Promise.all([loadProgress(), loadChapters()]).catch(function (err) {
+                    AdminAPI.showError('#learningError', '筛选失败：' + (err && err.message ? err.message : err));
+                });
+            });
+            jQuery('#resetBtn').on('click', function () {
+                jQuery('#filterCourse').val('');
+                jQuery('#filterCompleted').val('');
+                jQuery('#filterKeyword').val('');
+                state.courseId = state.completed = state.keyword = '';
+                state.page = 1;
+                Promise.all([loadProgress(), loadChapters()]);
+            });
+            jQuery('#refreshBtn').on('click', refresh);
+            refresh();
+        });
+    })();
+    </script>
+</body>
+
+</html>

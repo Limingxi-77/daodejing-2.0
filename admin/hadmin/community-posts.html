@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帖子管理 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-comments"></i> 帖子管理</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="postsFilterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="postsStatus" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="published">已发布</option>
+                                    <option value="hidden">已隐藏</option>
+                                    <option value="rejected">已驳回</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">筛选</button>
+                        </form>
+
+                        <div id="postsError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>标题</th>
+                                        <th>作者</th>
+                                        <th>状态</th>
+                                        <th>互动</th>
+                                        <th>标记</th>
+                                        <th>创建时间</th>
+                                        <th style="width: 260px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="postsBody">
+                                    <tr><td colspan="7" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="postsPagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = { page: 1, pageSize: 20, status: '' };
+
+        function statusLabel(s) {
+            if (s === 'published') return '<span class="label label-primary">已发布</span>';
+            if (s === 'hidden') return '<span class="label label-default">已隐藏</span>';
+            if (s === 'rejected') return '<span class="label label-danger">已驳回</span>';
+            return '<span class="label label-warning">' + AdminAPI.escapeHtml(s || '-') + '</span>';
+        }
+
+        function renderRow(p) {
+            var marks = [];
+            if (p.isPinned || p.is_pinned) marks.push('<span class="label label-info">置顶</span>');
+            if (p.isHot || p.is_hot) marks.push('<span class="label label-danger">热门</span>');
+            var interactionText = '赞 ' + (p.likeCount || p.like_count || 0) +
+                ' · 评 ' + (p.commentCount || p.comment_count || 0);
+            var author = AdminAPI.escapeHtml(p.displayName || p.display_name || p.username || '-');
+            var isPublished = (p.status === 'published');
+            var isPinned = !!(p.isPinned || p.is_pinned);
+
+            return '<tr data-id="' + AdminAPI.escapeHtml(p.id) + '">' +
+                '<td>' + AdminAPI.escapeHtml(p.title || '(无标题)') + '</td>' +
+                '<td>' + author + '</td>' +
+                '<td>' + statusLabel(p.status) + '</td>' +
+                '<td>' + interactionText + '</td>' +
+                '<td>' + (marks.join(' ') || '-') + '</td>' +
+                '<td>' + AdminAPI.formatDate(p.createdAt || p.created_at) + '</td>' +
+                '<td>' +
+                    (isPublished
+                        ? '<button class="btn btn-xs btn-warning btn-hide">隐藏</button> '
+                        : '<button class="btn btn-xs btn-success btn-restore">恢复</button> ') +
+                    (isPinned
+                        ? '<button class="btn btn-xs btn-default btn-unpin">取消置顶</button>'
+                        : '<button class="btn btn-xs btn-info btn-pin">置顶</button>') +
+                '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var q = AdminAPI.qs({ page: state.page, pageSize: state.pageSize, status: state.status });
+            AdminAPI.apiFetch('/api/admin/community/posts?' + q)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var body = document.getElementById('postsBody');
+                    body.innerHTML = rows.length === 0
+                        ? '<tr><td colspan="7" class="text-center text-muted">暂无帖子</td></tr>'
+                        : rows.map(renderRow).join('');
+                    AdminAPI.renderPagination('#postsPagination', result.pagination, function (p) {
+                        state.page = p; load();
+                    });
+                    AdminAPI.showError('#postsError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#postsError', '加载帖子失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function patchPost(id, body) {
+            return AdminAPI.apiFetch('/api/admin/community/posts/' + encodeURIComponent(id) + '/status', {
+                method: 'PATCH',
+                body: body
+            }).then(function () {
+                AdminAPI.notify('已更新', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('操作失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        jQuery(function () {
+            jQuery('#postsFilterForm').on('submit', function (e) {
+                e.preventDefault();
+                state.status = jQuery('#postsStatus').val();
+                state.page = 1; load();
+            });
+
+            jQuery('#postsBody').on('click', '.btn-hide', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchPost(id, { status: 'hidden' });
+            }).on('click', '.btn-restore', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchPost(id, { status: 'published' });
+            }).on('click', '.btn-pin', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchPost(id, { isPinned: true });
+            }).on('click', '.btn-unpin', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                patchPost(id, { isPinned: false });
+            });
+
+            load();
+        });
+    })();
+    </script>
+</body>
+
+</html>
