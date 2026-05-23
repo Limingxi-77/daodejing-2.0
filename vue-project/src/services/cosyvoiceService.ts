@@ -170,51 +170,6 @@ export class CosyVoiceService {  private defaultVoice: string
   }
 
   /**
-   * 使用浏览器内置 TTS（降级方案）
-   * @param text - 要朗读的文本
-   * @param options - 语音选项
-   * @returns 音频 Blob
-   */
-  private async useBrowserTTS(text: string, options: TTSOptions = {}): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      if (!window.speechSynthesis) {
-        reject(new Error('浏览器不支持语音合成'))
-        return
-      }
-
-      const utterance = new SpeechSynthesisUtterance(text)
-
-      // 设置语速
-      utterance.rate = options.speed || this.defaultSpeed
-
-      // 设置音量
-      utterance.volume = options.volume || 1.0
-
-      // 设置音调
-      utterance.pitch = options.pitch || 1.0
-
-      // 选择语音
-      const voices = window.speechSynthesis.getVoices()
-      const zhVoice = voices.find(v => v.lang.includes('zh'))
-      if (zhVoice) {
-        utterance.voice = zhVoice
-      }
-
-      // 朗读完成后的处理
-      utterance.onend = () => {
-        resolve(new Blob(['browser-tts'], { type: 'text/plain' }))
-      }
-
-      utterance.onerror = (event) => {
-        reject(new Error(`语音合成错误: ${event.error}`))
-      }
-
-      // 开始朗读
-      window.speechSynthesis.speak(utterance)
-    })
-  }
-
-  /**
    * 文本预处理
    * @param text - 原始文本
    * @returns 处理后的文本

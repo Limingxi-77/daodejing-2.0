@@ -6,7 +6,7 @@ marked.setOptions({
   breaks: true
 })
 
-const SAFE_CONFIG: DOMPurify.Config = {
+const SAFE_CONFIG = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'del', 'code', 'pre',
     'blockquote', 'ul', 'ol', 'li',
