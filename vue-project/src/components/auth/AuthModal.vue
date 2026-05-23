@@ -7,16 +7,16 @@
     aria-labelledby="authModalTitle"
     @keydown.esc="closeAuthModal"
   >
-    <div class="w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-secondary/30 bg-light shadow-2xl animate-fade-in">
-      <div class="flex items-center justify-between bg-gradient-to-br from-primary via-secondary to-primary p-4 text-white">
-        <h2 id="authModalTitle" class="text-xl font-bold">
-          {{ authMode === 'login' ? '账号登录' : '账号注册' }}
+    <div class="auth-modal-panel w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto border border-secondary/30 bg-light animate-fade-in">
+      <div class="auth-modal-heading flex items-center justify-between p-4">
+        <h2 id="authModalTitle" class="text-xl font-bold text-primary">
+          {{ authMode === 'login' ? '登录学习账号' : '创建学习账号' }}
         </h2>
         <button
           type="button"
           aria-label="关闭登录注册窗口"
           @click="closeAuthModal"
-          class="rounded text-white transition-colors duration-200 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          class="rounded text-secondary transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <i class="fas fa-times text-xl" aria-hidden="true"></i>
         </button>
@@ -236,6 +236,7 @@
           <button
             type="button"
             :aria-label="authMode === 'login' ? '使用微信登录' : '使用微信注册'"
+            @click="handleThirdPartyLogin"
             class="flex items-center justify-center rounded-md border border-secondary/40 p-3 transition-colors duration-200 hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <i class="fab fa-weixin text-xl text-primary" aria-hidden="true"></i>
@@ -243,6 +244,7 @@
           <button
             type="button"
             :aria-label="authMode === 'login' ? '使用 QQ 登录' : '使用 QQ 注册'"
+            @click="handleThirdPartyLogin"
             class="flex items-center justify-center rounded-md border border-secondary/40 p-3 transition-colors duration-200 hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <i class="fab fa-qq text-xl text-primary" aria-hidden="true"></i>
@@ -250,6 +252,7 @@
           <button
             type="button"
             :aria-label="authMode === 'login' ? '使用微博登录' : '使用微博注册'"
+            @click="handleThirdPartyLogin"
             class="flex items-center justify-center rounded-md border border-secondary/40 p-3 transition-colors duration-200 hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <i class="fab fa-weibo text-xl text-primary" aria-hidden="true"></i>
@@ -296,6 +299,10 @@ const registerForm = reactive({
   password: '',
   confirmPassword: ''
 })
+
+const handleThirdPartyLogin = () => {
+  alert('第三方登录暂未开放，请使用账号密码登录')
+}
 
 const strengthPercent = ref(0)
 const strengthText = ref('弱')
@@ -409,6 +416,16 @@ const handleRegister = async () => {
 <style scoped>
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
+}
+
+.auth-modal-panel {
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(51, 51, 51, 0.12);
+}
+
+.auth-modal-heading {
+  border-bottom: 1px solid rgba(166, 124, 82, 0.22);
+  background: rgba(249, 245, 235, 0.76);
 }
 
 @media (prefers-reduced-motion: reduce) {

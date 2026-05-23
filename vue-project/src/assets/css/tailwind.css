@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide the browser-native password reveal button; forms use a custom toggle. */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
+
 /* 全局样式 - 传统文化风格 */
 body {
   font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;

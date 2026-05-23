@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen">
+  <div class="min-h-screen home-quiet">
     <!-- Hero 区域 -->
     <section class="pt-24 pb-20 px-4 md:px-8 relative overflow-hidden">
       <!-- 背景装饰 -->
@@ -14,24 +14,24 @@
         <div class="max-w-5xl mx-auto text-center scroll-reveal">
           <div class="mb-12">
             <h1 class="text-[clamp(2.5rem,6vw,4rem)] font-bold text-primary leading-tight mb-6">
-              以AI智慧<br/>探索老子思想的现代价值
+              从一章开始<br/>读懂《道德经》
             </h1>
             <p class="text-xl text-dark/80 mb-8 max-w-2xl mx-auto">
-              智能解读 · 个性化学习 · 内容共创<br/>
-              开启与《道德经》的深度对话之旅
+              原文、注释、讲解、笔记与学习路径放在同一处。<br/>
+              少一点口号，多一点能继续读下去的秩序。
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
               <router-link 
-                :to="{ name: 'AIInterpretation' }"
+                :to="{ name: 'LearningPath' }"
                 class="px-10 py-4 btn-primary rounded-lg text-lg font-bold shadow-lg hover:-translate-y-1 transition-transform"
               >
-                开始探索
+                进入学习路径
               </router-link>
               <router-link 
-                :to="{ name: 'About' }"
+                :to="{ name: 'AIInterpretation' }"
                 class="px-10 py-4 btn-secondary rounded-lg text-lg font-bold hover:-translate-y-1 transition-transform"
               >
-                了解更多
+                查看章节解读
               </router-link>
             </div>
           </div>
@@ -39,7 +39,7 @@
       </div>
     </section>
 
-    <!-- 每日一签 (Gamification) -->
+    <!-- 每日摘句 -->
     <section class="py-12 bg-primary/5">
       <div class="container mx-auto px-4 md:px-8">
         <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
@@ -51,14 +51,14 @@
             <!-- XP 动画 -->
             <transition name="fade-up">
               <div v-if="showXpAnimation" class="absolute top-10 right-10 text-yellow-300 font-bold text-2xl z-50 pointer-events-none drop-shadow-md">
-                +50 功德
+                +50 经验
               </div>
             </transition>
 
-            <h3 class="text-2xl font-bold mb-4 relative z-10">每日一签</h3>
+            <h3 class="text-2xl font-bold mb-4 relative z-10">今日摘句</h3>
             <p class="text-center mb-6 text-white/80 relative z-10">
-              诚心祈愿，汲取今日智慧<br/>
-              道法自然，指引前行方向
+              从一段短句开始，给今天的阅读留一个入口。<br/>
+              不求玄妙，先把一句话读清楚。
             </p>
             <button 
               @click="drawFortune" 
@@ -66,7 +66,7 @@
               class="px-6 py-2 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-70 disabled:cursor-not-allowed relative z-10"
               :class="{'animate-shake': isShaking}"
             >
-              {{ hasDrawn ? '今日已签' : (isShaking ? '求签中...' : '抽取灵签') }}
+              {{ hasDrawn ? '今日已读' : (isShaking ? '抽取中...' : '抽取摘句') }}
             </button>
             
             <button 
@@ -83,7 +83,7 @@
                 <p>点击左侧按钮，开启今日道家智慧</p>
               </div>
               <div v-else class="text-center flex flex-col items-center justify-center h-full" key="content">
-                <div class="mb-2 text-sm text-primary font-bold tracking-widest uppercase w-full">今日运势 · {{ currentFortune.type }}</div>
+                <div class="mb-2 text-sm text-primary font-bold tracking-widest uppercase w-full">今日摘句 · {{ currentFortune.type }}</div>
                 
                 <!-- 垂直文本容器 -->
                 <div class="vertical-text my-4 retro-card transition-all duration-500">
@@ -110,36 +110,36 @@
       </div>
     </section>
 
-    <!-- 平台特色功能 -->
+    <!-- 常用入口 -->
     <section class="py-16 bg-white/50">
       <div class="container mx-auto px-4 md:px-8">
         <div class="text-center mb-12 scroll-reveal">
-          <h2 class="text-3xl font-bold text-primary mb-4">平台特色功能</h2>
+          <h2 class="text-3xl font-bold text-primary mb-4">常用入口</h2>
           <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-            结合AI技术与传统文化，为您提供全方位的道德经学习体验
+            把阅读、练习、记录和讨论拆成清楚的入口，减少页面跳转中的干扰。
           </p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <!-- AI智能解读 -->
+          <!-- 章节解读 -->
           <div class="bg-white rounded-xl shadow-md p-8 hover:-translate-y-2 transition-transform duration-300 border border-secondary/10">
             <div class="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-6 mx-auto">
               <i class="fas fa-robot text-3xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-dark mb-3 text-center">AI智能解读</h3>
+            <h3 class="text-xl font-bold text-dark mb-3 text-center">章节解读</h3>
             <p class="text-gray-600 text-center leading-relaxed">
-              基于大语言模型的智能解读，深度解析道德经每一章的哲学内涵，支持多轮对话与答疑。
+              按章查看原文、注释与讲解，遇到难句时再进入问答，阅读节奏更稳定。
             </p>
           </div>
 
-          <!-- 个性化学习路径 -->
+          <!-- 学习路径 -->
           <div class="bg-white rounded-xl shadow-md p-8 hover:-translate-y-2 transition-transform duration-300 border border-secondary/10">
             <div class="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-6 mx-auto">
               <i class="fas fa-route text-3xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-dark mb-3 text-center">个性化学习路径</h3>
+            <h3 class="text-xl font-bold text-dark mb-3 text-center">学习路径</h3>
             <p class="text-gray-600 text-center leading-relaxed">
-              从初学者到研究者，根据您的学习目标和进度，定制专属的道德经循序渐进学习路线。
+              初学、进阶、研究三条路径保留真实进度，完成一章后后台也能看到同步记录。
             </p>
           </div>
 
@@ -148,9 +148,9 @@
             <div class="w-16 h-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-6 mx-auto">
               <i class="fas fa-users text-3xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-dark mb-3 text-center">互动社区</h3>
+            <h3 class="text-xl font-bold text-dark mb-3 text-center">读书讨论</h3>
             <p class="text-gray-600 text-center leading-relaxed">
-              与志同道合的学习者交流心得，分享感悟，共同探讨道德经在现代生活中的应用智慧。
+              把章节理解、学习笔记和问题放到社区里讨论，保留人的判断和阅读痕迹。
             </p>
           </div>
         </div>
@@ -163,20 +163,20 @@
         <div class="bg-primary/5 rounded-2xl p-10 border border-primary/10">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div class="text-center">
-              <div class="text-4xl font-bold text-primary mb-2">5,000+</div>
-              <div class="text-gray-600 font-medium">活跃用户</div>
-            </div>
-            <div class="text-center">
-              <div class="text-4xl font-bold text-primary mb-2">10,000+</div>
-              <div class="text-gray-600 font-medium">解读内容</div>
-            </div>
-            <div class="text-center">
               <div class="text-4xl font-bold text-primary mb-2">81</div>
-              <div class="text-gray-600 font-medium">完整章节</div>
+              <div class="text-gray-600 font-medium">原文章节</div>
             </div>
             <div class="text-center">
-              <div class="text-4xl font-bold text-primary mb-2">24/7</div>
-              <div class="text-gray-600 font-medium">AI服务</div>
+              <div class="text-4xl font-bold text-primary mb-2">3</div>
+              <div class="text-gray-600 font-medium">学习路径</div>
+            </div>
+            <div class="text-center">
+              <div class="text-4xl font-bold text-primary mb-2">4</div>
+              <div class="text-gray-600 font-medium">阅读模块</div>
+            </div>
+            <div class="text-center">
+              <div class="text-4xl font-bold text-primary mb-2">1</div>
+              <div class="text-gray-600 font-medium">后台同步</div>
             </div>
           </div>
         </div>
@@ -189,7 +189,7 @@
         <div class="text-center mb-12">
           <h2 class="text-3xl font-bold text-primary mb-4">最新动态</h2>
           <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-            了解平台最新功能和社区活动
+            最近整理的章节内容与读书活动
           </p>
         </div>
 
@@ -200,7 +200,7 @@
               <span class="text-sm text-gray-400">2024-01-27</span>
             </div>
             <p class="text-gray-600 mb-4">
-              道德经第25章"有物混成"的AI深度解读已上线，包含哲学分析和现代应用案例。
+              道德经第25章"有物混成"已整理为原文、注释、讲解三段式阅读内容。
             </p>
             <a href="#" class="text-primary hover:underline text-sm font-medium">阅读详情 →</a>
           </div>
@@ -281,7 +281,7 @@ const drawFortune = () => {
     localStorage.setItem('dailyFortuneDate', new Date().toDateString())
     localStorage.setItem('dailyFortuneIndex', randomIndex.toString())
     
-    // 增加功德（经验值）
+    // 增加经验值
     cultivationStore.addExp(50, '每日一签')
     showXpAnimation.value = true
     setTimeout(() => showXpAnimation.value = false, 2000)
@@ -312,6 +312,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.home-quiet {
+  background:
+    linear-gradient(180deg, rgba(252, 252, 248, 0.96), rgba(249, 245, 235, 0.82)),
+    repeating-linear-gradient(90deg, rgba(107, 72, 38, 0.035) 0 1px, transparent 1px 32px);
+}
+
+.home-quiet :deep(.shadow-xl),
+.home-quiet :deep(.shadow-2xl),
+.home-quiet :deep(.shadow-lg),
+.home-quiet :deep(.shadow-md) {
+  box-shadow: 0 12px 32px rgba(51, 51, 51, 0.08);
+}
+
+.home-quiet :deep(.rounded-2xl),
+.home-quiet :deep(.rounded-xl) {
+  border-radius: 8px;
+}
+
+.home-quiet :deep(.btn-primary),
+.home-quiet :deep(.btn-secondary) {
+  box-shadow: none;
+  transform: none;
+}
+
+.home-quiet :deep(.bg-white) {
+  border: 1px solid rgba(166, 124, 82, 0.18);
+}
+
+.home-quiet :deep(.bg-gradient-to-br) {
+  background-image: none;
+}
+
+.home-quiet :deep(.hover\:-translate-y-1:hover),
+.home-quiet :deep(.hover\:-translate-y-2:hover) {
+  transform: translateY(-2px);
+}
+
 /* 古籍模式适配 */
 :global(html.retro-mode) .bg-white {
   background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiLz4KPC9zdmc+');

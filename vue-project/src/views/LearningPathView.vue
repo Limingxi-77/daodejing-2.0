@@ -1,11 +1,11 @@
 <template>
-  <div class="pt-24 pb-20 px-4 md:px-8 bg-gray-50 min-h-screen">
+  <div class="learning-quiet pt-24 pb-20 px-4 md:px-8 min-h-screen">
     <div class="container mx-auto max-w-6xl">
       <!-- 页面标题 -->
       <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold text-primary mb-4">道德经学习路径</h1>
+        <h1 class="text-4xl font-bold text-primary mb-4">学习路径</h1>
         <p class="text-xl text-dark max-w-3xl mx-auto">
-          根据您的学习目标和兴趣，选择适合的学习路径，系统性地掌握《道德经》的智慧
+          按章节推进阅读，完成记录会同步到后台管理页。路径只负责帮你知道下一步读哪里。
         </p>
       </div>
 
@@ -153,32 +153,28 @@
       <!-- 亲子绘本专区 -->
       <section class="mb-12 animate-slide-up" style="animation-delay: 0.1s;">
         <h2 class="text-2xl font-bold text-primary mb-6 flex items-center">
-          <i class="fas fa-child mr-2 text-blue-500"></i> 亲子启蒙 & 趣味阅读
+          <i class="fas fa-book-open mr-2 text-primary"></i> 延伸阅读
         </h2>
         <div 
           @click="$router.push('/picture-book')"
-          class="relative bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 group border-2 border-dashed border-blue-200"
+          class="relative bg-white rounded-lg p-8 overflow-hidden cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 group border border-secondary/20"
         >
-          <!-- 装饰背景 -->
-          <div class="absolute top-0 right-0 w-64 h-64 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
-          <div class="absolute bottom-0 left-0 w-64 h-64 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
-          
           <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
             <div class="flex-1 text-center md:text-left">
-              <span class="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-full mb-4">寓教于乐</span>
-              <h3 class="text-3xl font-bold text-dark mb-4 group-hover:text-blue-600 transition-colors">小小道童 · 互动绘本馆</h3>
+              <span class="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded mb-4">亲子阅读</span>
+              <h3 class="text-3xl font-bold text-dark mb-4 group-hover:text-primary transition-colors">绘本馆</h3>
               <p class="text-gray-600 text-lg mb-6 max-w-2xl">
-                专为儿童设计的沉浸式阅读体验。将深奥的《道德经》哲理转化为生动有趣的寓言故事，配合 AI 朗读与自动翻页，让智慧的种子在孩子心中萌芽。
+                将章节思想改写为短篇寓言，适合亲子共读。保留朗读和翻页功能，但入口保持轻量，不打断主路径学习。
               </p>
               <div class="flex flex-wrap gap-4 justify-center md:justify-start">
                 <span class="flex items-center text-sm text-gray-500 bg-white px-3 py-1.5 rounded-lg shadow-sm">
                   <i class="fas fa-book-reader text-blue-400 mr-2"></i> 经典寓言改编
                 </span>
                 <span class="flex items-center text-sm text-gray-500 bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                  <i class="fas fa-volume-up text-purple-400 mr-2"></i> 智能语音伴读
+                  <i class="fas fa-volume-up text-primary mr-2"></i> 语音伴读
                 </span>
                 <span class="flex items-center text-sm text-gray-500 bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                  <i class="fas fa-magic text-yellow-400 mr-2"></i> 沉浸式翻页
+                  <i class="fas fa-columns text-primary mr-2"></i> 翻页阅读
                 </span>
               </div>
             </div>
@@ -197,7 +193,7 @@
             </div>
           </div>
           
-          <button class="absolute bottom-8 right-8 bg-blue-500 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-blue-600 transition-colors group-hover:scale-110 hidden md:flex items-center">
+          <button class="absolute bottom-8 right-8 bg-primary text-white px-6 py-3 rounded-md font-bold hover:bg-primary/90 transition-colors hidden md:flex items-center">
             开始阅读 <i class="fas fa-arrow-right ml-2"></i>
           </button>
         </div>
@@ -696,7 +692,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, nextTick, defineAsyncComponent, watch } from 'vue'
 // 三个重组件都按需挂载：
 // - KnowledgeGraph 依赖 d3，~63KB
 // - 两个 Modal 默认不显示
@@ -704,10 +700,12 @@ const QuizModal = defineAsyncComponent(() => import('@/components/learning/QuizM
 const RandomEventModal = defineAsyncComponent(() => import('@/components/learning/RandomEventModal.vue'))
 const KnowledgeGraph = defineAsyncComponent(() => import('@/components/graph/KnowledgeGraph.vue'))
 import { useCultivationStore } from '@/stores/cultivation'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import { LearningPathService, type Lesson, type LearningPath, Difficulty } from '@/services/learningPathService'
 import { NoteService, type LearningNote } from '@/services/noteService'
 import { LearningAnalyticsService, type LearningStats } from '@/services/learningAnalyticsService'
+import { apiClient } from '@/services/api'
 
 // 类型定义
 type PathKey = 'beginner' | 'intermediate' | 'advanced'
@@ -767,10 +765,52 @@ const eventData = ref({
   description: '',
   xp: 0
 })
+const learningProgressMap = ref<Record<string, Record<string, number>>>({})
+
+const getCurrentUserId = () => user.value?.id || 'current-user'
+
+const applyLearningProgress = (progress: Record<string, Record<string, number>>) => {
+  learningProgressMap.value = progress
+  LearningPathService.applyProgress(progress)
+  learningPaths.value = [...LearningPathService.getAllPaths()]
+}
+
+const loadLearningProgress = async () => {
+  if (!isLoggedIn.value) {
+    return
+  }
+
+  try {
+    const response = await apiClient<LearningProgressResponse>('/learning/progress')
+    applyLearningProgress(response.progress || {})
+    localStorage.setItem(`learning_progress_${getCurrentUserId()}`, JSON.stringify(response.progress || {}))
+  } catch (error) {
+    console.error('加载学习进度失败:', error)
+  }
+}
+
+const syncLessonProgress = async (pathId: string, lessonId: number, progress = 100) => {
+  if (!isLoggedIn.value) {
+    return
+  }
+
+  const userId = getCurrentUserId()
+  const synced = await LearningPathService.updateProgress(userId, pathId, String(lessonId), progress)
+  if (!synced && isLoggedIn.value) {
+    alert('学习进度同步到后台失败，请稍后重试')
+  }
+}
 
 const cultivationStore = useCultivationStore()
 const { addExp } = cultivationStore
 const { showUpgradeModal, currentRealm } = storeToRefs(cultivationStore)
+const authStore = useAuthStore()
+const { user, isLoggedIn } = storeToRefs(authStore)
+
+interface LearningProgressResponse {
+  success: boolean
+  progress: Record<string, Record<string, number>>
+}
 
 
 
@@ -920,7 +960,7 @@ const openLessonDetail = (lesson: Lesson) => {
   findNextLesson(lesson)
   
   // 记录学习会话
-  LearningAnalyticsService.recordStudySession('current-user', lesson.id, 15, false)
+  LearningAnalyticsService.recordStudySession(getCurrentUserId(), lesson.id, 15, false)
   
   // 更新学习统计
   updateLearningStats()
@@ -964,15 +1004,18 @@ const findNextLesson = (currentLesson: Lesson) => {
 }
 
 // 完成当前章节并解锁下一章
-const completeCurrentLesson = () => {
+const completeCurrentLesson = async () => {
   if (!currentLesson.value || !currentPathKey.value) return
   
   // 标记当前章节为已完成
   LearningPathService.markLessonAsCompleted(currentPathKey.value, currentLesson.value.id)
+  learningPaths.value = [...LearningPathService.getAllPaths()]
+  await syncLessonProgress(currentPathKey.value, currentLesson.value.id, 100)
   
   // 如果存在下一章，标记为当前学习章节
   if (nextLesson.value) {
     LearningPathService.markLessonAsCurrent(currentPathKey.value, nextLesson.value.id)
+    learningPaths.value = [...LearningPathService.getAllPaths()]
   }
   
   // 更新学习统计
@@ -998,7 +1041,15 @@ const getProgressColor = (pathId: string) => {
 const getPathProgress = (pathId: string) => {
   const path = learningPaths.value.find((p: LearningPath) => p.id === pathId)
   if (!path) return 0
-  
+
+  const progressMap = learningProgressMap.value[pathId]
+  if (progressMap) {
+    const total = path.lessons.reduce((sum: number, lesson: Lesson) => {
+      return sum + Number(progressMap[String(lesson.id)] || progressMap[lesson.id] || 0)
+    }, 0)
+    return Math.round(total / path.totalLessons)
+  }
+
   const completedLessons = path.lessons.filter((lesson: Lesson) => lesson.completed).length
   return Math.round((completedLessons / path.totalLessons) * 100)
 }
@@ -1032,17 +1083,20 @@ const closeQuiz = () => {
   quizLesson.value = null
 }
 
-const completeQuiz = (quizScore?: number) => {
+const completeQuiz = async (quizScore?: number) => {
   if (!quizLesson.value || !currentPath.value || isReviewMode.value) {
     closeQuiz()
     return
   }
 
   // 标记课程完成
-  LearningPathService.markLessonComplete('current-user', currentPathKey.value || 'beginner', quizLesson.value.id.toString())
+  const pathId = currentPathKey.value || 'beginner'
+  LearningPathService.markLessonAsCompleted(pathId, quizLesson.value.id)
+  learningPaths.value = [...LearningPathService.getAllPaths()]
+  await syncLessonProgress(pathId, quizLesson.value.id, 100)
   
   // 记录学习会话（包含测验分数）
-  LearningAnalyticsService.recordStudySession('current-user', quizLesson.value.id, 20, true, quizScore)
+  LearningAnalyticsService.recordStudySession(getCurrentUserId(), quizLesson.value.id, 20, true, quizScore)
   
   // 更新学习统计
   updateLearningStats()
@@ -1082,7 +1136,7 @@ const triggerRandomEvent = () => {
 
 // 笔记相关方法
 const loadLessonNotes = (lessonId: number) => {
-  lessonNotes.value = NoteService.getNotesByLesson('current-user', lessonId)
+  lessonNotes.value = NoteService.getNotesByLesson(getCurrentUserId(), lessonId)
 }
 
 const saveNote = () => {
@@ -1091,7 +1145,7 @@ const saveNote = () => {
   const tags = newNoteTags.value.split(',').map(tag => tag.trim()).filter(tag => tag)
   
   NoteService.createNote(
-    'current-user',
+    getCurrentUserId(),
     currentLesson.value.id,
     `关于${currentLesson.value.title}的笔记`,
     newNoteContent.value,
@@ -1114,12 +1168,12 @@ const editNote = (note: LearningNote) => {
   newNoteIsPublic.value = note.isPublic
   
   // 删除原笔记
-  NoteService.deleteNote('current-user', note.id)
+  NoteService.deleteNote(getCurrentUserId(), note.id)
 }
 
 const deleteNote = (noteId: string) => {
   if (confirm('确定要删除这条笔记吗？')) {
-    NoteService.deleteNote('current-user', noteId)
+    NoteService.deleteNote(getCurrentUserId(), noteId)
     loadLessonNotes(currentLesson.value!.id)
   }
 }
@@ -1130,10 +1184,23 @@ const formatDate = (dateString: string) => {
 
 // 更新学习统计
 const updateLearningStats = () => {
-  learningStats.value = LearningAnalyticsService.getUserStats('current-user')
+  learningStats.value = LearningAnalyticsService.getUserStats(getCurrentUserId())
+  learningStats.value.userId = getCurrentUserId()
 }
 
-onMounted(() => {
+watch(() => user.value?.id, async userId => {
+  if (userId) {
+    await loadLearningProgress()
+    updateLearningStats()
+  } else {
+    applyLearningProgress({})
+    updateLearningStats()
+  }
+})
+
+onMounted(async () => {
+  await loadLearningProgress()
+
   // 加载学习统计
   updateLearningStats()
   
@@ -1146,6 +1213,42 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.learning-quiet {
+  background:
+    linear-gradient(180deg, rgba(252, 252, 248, 0.98), rgba(247, 241, 227, 0.76)),
+    repeating-linear-gradient(90deg, rgba(107, 72, 38, 0.035) 0 1px, transparent 1px 34px);
+}
+
+.learning-quiet :deep(.bg-white) {
+  border: 1px solid rgba(166, 124, 82, 0.16);
+}
+
+.learning-quiet :deep(.shadow-md),
+.learning-quiet :deep(.shadow-lg),
+.learning-quiet :deep(.shadow-xl),
+.learning-quiet :deep(.shadow-2xl) {
+  box-shadow: 0 12px 30px rgba(51, 51, 51, 0.075);
+}
+
+.learning-quiet :deep(.rounded-2xl),
+.learning-quiet :deep(.rounded-xl) {
+  border-radius: 8px;
+}
+
+.learning-quiet :deep(.bg-gradient-to-br) {
+  background-image: none;
+}
+
+.learning-quiet :deep(.hover\:-translate-y-1:hover) {
+  transform: translateY(-2px);
+}
+
+.learning-quiet :deep(.bg-purple-100),
+.learning-quiet :deep(.text-purple-500),
+.learning-quiet :deep(.text-purple-600) {
+  color: #6B4826;
+}
+
 /* 禅模式适配 */
 :global(html.zen-mode) .bg-green-100,
 :global(html.zen-mode) .bg-orange-100,

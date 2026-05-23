@@ -1,9 +1,9 @@
 <template>
-  <div data-testid="login-page" class="min-h-screen bg-background bg-traditional-pattern flex items-center justify-center p-4">
-    <div class="bg-light/95 rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-secondary/30">
-      <div class="bg-gradient-to-br from-primary via-secondary to-primary p-6 text-center">
-        <h1 class="text-2xl font-bold text-white">道德经AI平台</h1>
-        <p class="text-light mt-2">登录您的账号</p>
+  <div data-testid="login-page" class="auth-quiet min-h-screen flex items-center justify-center p-4">
+    <div class="auth-panel bg-light/95 w-full max-w-md overflow-hidden border border-secondary/30">
+      <div class="auth-heading p-6 text-center">
+        <h1 class="text-2xl font-bold text-primary">道德经学习</h1>
+        <p class="text-dark/70 mt-2">登录后继续阅读、记录笔记和同步进度</p>
       </div>
 
       <div class="p-6">
@@ -88,13 +88,13 @@
         </div>
 
         <div class="grid grid-cols-3 gap-4">
-          <button type="button" aria-label="使用微信登录" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
+          <button type="button" aria-label="使用微信登录" @click="handleThirdPartyLogin" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
             <i class="fab fa-weixin text-primary text-xl" aria-hidden="true"></i>
           </button>
-          <button type="button" aria-label="使用 QQ 登录" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
+          <button type="button" aria-label="使用 QQ 登录" @click="handleThirdPartyLogin" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
             <i class="fab fa-qq text-primary text-xl" aria-hidden="true"></i>
           </button>
-          <button type="button" aria-label="使用微博登录" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
+          <button type="button" aria-label="使用微博登录" @click="handleThirdPartyLogin" class="flex items-center justify-center p-3 border border-secondary/40 rounded-md hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors duration-200">
             <i class="fab fa-weibo text-primary text-xl" aria-hidden="true"></i>
           </button>
         </div>
@@ -129,6 +129,10 @@ const loginForm = reactive({
   password: ''
 })
 
+const handleThirdPartyLogin = () => {
+  alert('第三方登录暂未开放，请使用账号密码登录')
+}
+
 const handleLogin = async () => {
   if (!loginForm.email || !loginForm.password) {
     alert('请填写邮箱和密码')
@@ -146,3 +150,21 @@ const handleLogin = async () => {
   }
 }
 </script>
+
+<style scoped>
+.auth-quiet {
+  background:
+    linear-gradient(180deg, rgba(252, 252, 248, 0.98), rgba(249, 245, 235, 0.9)),
+    repeating-linear-gradient(90deg, rgba(107, 72, 38, 0.04) 0 1px, transparent 1px 36px);
+}
+
+.auth-panel {
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(51, 51, 51, 0.1);
+}
+
+.auth-heading {
+  border-bottom: 1px solid rgba(166, 124, 82, 0.22);
+  background: rgba(249, 245, 235, 0.72);
+}
+</style>

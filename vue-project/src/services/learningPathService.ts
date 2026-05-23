@@ -4150,6 +4150,41 @@ export class LearningPathService {
     return learningPaths
   }
 
+  private static refreshPathStats(path: LearningPath): void {
+    const completedLessons = path.lessons.filter(lesson => lesson.completed).length
+    path.completedLessons = completedLessons
+    path.progress = path.totalLessons > 0 ? Math.round((completedLessons / path.totalLessons) * 100) : 0
+  }
+
+  static refreshAllPathStats(): void {
+    learningPaths.forEach(path => this.refreshPathStats(path))
+  }
+
+  static applyProgress(progress: Record<string, Record<string, number>>): void {
+    learningPaths.forEach(path => {
+      const pathProgress = progress[path.id] || {}
+      path.lessons.forEach((lesson, index) => {
+        const lessonProgress = Number(pathProgress[String(lesson.id)] || pathProgress[lesson.id] || 0)
+        lesson.completed = lessonProgress >= 100
+        lesson.current = false
+        if (index === 0 && !lesson.completed) {
+          lesson.current = true
+        }
+      })
+
+      const firstIncomplete = path.lessons.find(lesson => !lesson.completed)
+      if (firstIncomplete) {
+        path.lessons.forEach(lesson => {
+          lesson.current = lesson.id === firstIncomplete.id
+        })
+      } else if (path.lessons.length > 0) {
+        path.lessons[path.lessons.length - 1].current = true
+      }
+
+      this.refreshPathStats(path)
+    })
+  }
+
   // 根据ID获取学习路径
   static getPathById(id: string): LearningPath | undefined {
     return learningPaths.find(path => path.id === id)
@@ -4187,6 +4222,7 @@ export class LearningPathService {
         lesson.completed = true
         lesson.current = false
       }
+      this.refreshPathStats(path)
     }
   }
 
@@ -4204,6 +4240,7 @@ export class LearningPathService {
       if (lesson) {
         lesson.current = true
       }
+      this.refreshPathStats(path)
     }
   }
 

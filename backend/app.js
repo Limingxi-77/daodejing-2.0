@@ -1931,7 +1931,8 @@ app.get('/api/learning/progress', authMiddleware, async (req, res) => {
 app.put('/api/learning/progress', authMiddleware, async (req, res) => {
   try {
     const { courseId, chapterId, progress } = req.body
-    if (!courseId || !chapterId || typeof progress !== 'number') {
+    const normalizedProgress = Math.max(0, Math.min(100, Number(progress)))
+    if (!courseId || !chapterId || Number.isNaN(normalizedProgress)) {
       return res.status(400).json({ success: false, message: 'courseId、chapterId、progress 必填' })
     }
 
@@ -1939,9 +1940,9 @@ app.put('/api/learning/progress', authMiddleware, async (req, res) => {
       `INSERT INTO learning_progress (id, user_id, course_id, chapter_id, progress_percentage, completed, last_accessed)
        VALUES (?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE progress_percentage = VALUES(progress_percentage), completed = VALUES(completed), last_accessed = NOW(), updated_at = NOW()`,
-      [randomUUID(), req.user.id, courseId, chapterId, progress, progress >= 100]
+      [randomUUID(), req.user.id, courseId, chapterId, normalizedProgress, normalizedProgress >= 100]
     )
-    res.json({ success: true })
+    res.json({ success: true, progress: normalizedProgress })
   } catch (error) {
     console.error('更新学习进度失败:', error)
     res.status(500).json({ success: false, message: '更新学习进度失败' })
@@ -2465,6 +2466,7 @@ app.get('/api/admin/learning/paths', adminAuthMiddleware, requirePermission('lea
          COUNT(DISTINCT user_id) AS learner_count,
          COUNT(*) AS progress_records,
          SUM(CASE WHEN completed = TRUE OR progress_percentage >= 100 THEN 1 ELSE 0 END) AS completed_records,
+         SUM(progress_percentage) AS progress_sum,
          ROUND(AVG(progress_percentage), 2) AS average_progress,
          MAX(last_accessed) AS last_accessed
        FROM learning_progress
@@ -2474,12 +2476,16 @@ app.get('/api/admin/learning/paths', adminAuthMiddleware, requirePermission('lea
     const summaryByCourse = new Map(summaryRows.map(row => [row.course_id, row]))
     const knownPaths = ADMIN_LEARNING_PATHS.map(path => {
       const row = summaryByCourse.get(path.id) || {}
+      const learnerCount = Number(row.learner_count || 0)
+      const normalizedAverage = learnerCount > 0 && path.totalLessons > 0
+        ? Number((((Number(row.progress_sum || 0)) / (learnerCount * path.totalLessons))).toFixed(2))
+        : Number(row.average_progress || 0)
       return {
         ...path,
-        learnerCount: Number(row.learner_count || 0),
+        learnerCount,
         progressRecords: Number(row.progress_records || 0),
         completedRecords: Number(row.completed_records || 0),
-        averageProgress: Number(row.average_progress || 0),
+        averageProgress: normalizedAverage,
         lastAccessed: row.last_accessed || null
       }
     })
