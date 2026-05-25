@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/api'
+import { apiClient, getToken } from '@/services/api'
 
 export interface DeepSeekConfig {
   API_KEY: string
@@ -46,10 +46,77 @@ export class DeepSeekService {
   }
 
   async generateTextStream(prompt: string, onChunk: (chunk: string) => void): Promise<void> {
-    const text = await this.generateText(prompt)
-    for (const chunk of text.split('')) {
-      await new Promise(resolve => setTimeout(resolve, 30))
-      onChunk(chunk)
+    const streamEnabled = (import.meta as { env?: { VITE_AI_STREAM?: string } }).env?.VITE_AI_STREAM !== 'false'
+    if (!streamEnabled) {
+      const text = await this.generateText(prompt)
+      onChunk(text)
+      return
+    }
+
+    const token = getToken()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream'
+    }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    try {
+      const response = await fetch('/api/ai/chat/stream', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          provider: 'deepseek',
+          model: this.model,
+          messages: [
+            { role: 'system', content: '你是一位精通《道德经》的道家学者，善于用通俗易懂的语言解释深奥的哲学思想。' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: this.maxTokens,
+          temperature: this.temperature
+        })
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`stream HTTP ${response.status}`)
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+      try {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const parts = buffer.split('\n\n')
+          buffer = parts.pop() || ''
+          for (const block of parts) {
+            if (!block || block.startsWith(':')) continue
+            const dataLines: string[] = []
+            for (const line of block.split('\n')) {
+              if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+            }
+            if (!dataLines.length) continue
+            const payload = dataLines.join('\n').trim()
+            if (payload === '[DONE]') continue
+            try {
+              const obj = JSON.parse(payload) as { delta?: string, event?: string }
+              if (obj.event === 'done' || obj.event === 'error') continue
+              if (typeof obj.delta === 'string' && obj.delta.length) {
+                onChunk(obj.delta)
+              }
+            } catch {
+              /* 单 chunk JSON 失败,跳过 */
+            }
+          }
+        }
+      } finally {
+        try { reader.releaseLock() } catch { /* ignore */ }
+      }
+    } catch (error) {
+      console.warn('DeepSeek 流式失败,降级为非流式:', error)
+      const text = await this.generateText(prompt)
+      onChunk(text)
     }
   }
 

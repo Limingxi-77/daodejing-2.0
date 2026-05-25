@@ -72,6 +72,14 @@
           <i :class="isZenMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
         </button>
 
+        <!-- 收件箱(登录后显示,位于会员按钮前) -->
+        <router-link v-if="isLoggedIn" to="/inbox" class="relative text-primary hover:text-accent transition-colors p-1" title="收件箱">
+          <i class="fas fa-envelope text-lg"></i>
+          <span v-if="notifStore.unreadCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            {{ notifStore.unreadCount > 99 ? '99+' : notifStore.unreadCount }}
+          </span>
+        </router-link>
+
         <!-- 会员付费 -->
         <button
           @click="showPricingModal = true"
@@ -88,13 +96,6 @@
 
         <!-- 用户信息（登录后显示） -->
         <div v-else class="flex items-center space-x-4">
-          <!-- 收件箱 -->
-          <router-link to="/inbox" class="relative text-primary hover:text-accent transition-colors p-1">
-            <i class="fas fa-envelope text-lg"></i>
-            <span v-if="notifStore.unreadCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-              {{ notifStore.unreadCount > 99 ? '99+' : notifStore.unreadCount }}
-            </span>
-          </router-link>
           <div class="flex items-center space-x-2">
             <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
               <i class="fas fa-user"></i>

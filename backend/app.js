@@ -15,6 +15,41 @@ const {
   shouldSendAlert,
   touchMemoryRateLimitBucket
 } = require('./lib/runtime-utils')
+const {
+  splitSSEBuffer,
+  parseSSEEvent,
+  extractDeltaAndUsage,
+  chunkTextForMock,
+  formatSSEData,
+  SSE_DONE_LINE,
+  SSE_COMMENT_PING
+} = require('./lib/sse-utils')
+const {
+  COUNCIL_PERSONAS,
+  validateQuestion: validateCouncilQuestion,
+  aggregateCouncilResults,
+  buildFailureFallback: buildCouncilFailureFallback,
+  buildDebatePeerPrompt,
+  aggregateDebateResults
+} = require('./lib/council-utils')
+const {
+  KNOWLEDGE_CHAPTERS: DIVINATION_CHAPTERS,
+  getChapterText,
+  getDateKey,
+  pickChapterDeterministic,
+  buildDivinationPrompt,
+  parseDivinationContent,
+  buildMockDivination
+} = require('./lib/divination-utils')
+const {
+  formatValueReport
+} = require('./lib/value-report-utils')
+const {
+  TEAM_SIZE_OPTIONS: LEADS_TEAM_SIZE_OPTIONS,
+  INTENT_OPTIONS: LEADS_INTENT_OPTIONS,
+  validateLeadInput,
+  normalizeLeadInput
+} = require('./lib/leads-utils')
 require('dotenv').config()
 
 const SERVICE_STARTED_AT = new Date()
@@ -1142,6 +1177,24 @@ async function ensureAdminTables() {
   `)
 
   await pool.execute(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(200) NOT NULL,
+      company VARCHAR(200),
+      phone VARCHAR(50),
+      team_size VARCHAR(50),
+      intent VARCHAR(50) DEFAULT 'enterprise',
+      note TEXT,
+      status VARCHAR(30) DEFAULT 'new',
+      ip_address VARCHAR(80),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_status (status),
+      INDEX idx_created (created_at)
+    )
+  `)
+
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS security_events (
       id VARCHAR(36) PRIMARY KEY,
       event_type VARCHAR(80) NOT NULL,
@@ -1587,7 +1640,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 app.patch('/api/auth/subscription', authMiddleware, async (req, res) => {
   try {
     const { tier } = req.body
-    const validTiers = new Set(['free', 'pro', 'master'])
+    const validTiers = new Set(['free', 'pro', 'master', 'team'])
     if (!validTiers.has(tier)) {
       return res.status(400).json({ success: false, message: '无效的会员等级' })
     }
@@ -1716,6 +1769,740 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
     })
     console.error('AI 代理调用失败:', error)
     res.status(502).json({ success: false, message: error.message || 'AI 代理调用失败' })
+  }
+})
+
+app.post('/api/ai/chat/stream', authMiddleware, async (req, res) => {
+  const startedAt = Date.now()
+  let providerForLog = req.body?.provider || 'deepseek'
+  let modelForLog = req.body?.model || ''
+  const upstreamAbort = new AbortController()
+  let heartbeatTimer = null
+  let mockTimer = null
+  let streamClosed = false
+
+  const closeStream = () => {
+    if (streamClosed) return
+    streamClosed = true
+    if (heartbeatTimer) clearInterval(heartbeatTimer)
+    if (mockTimer) clearTimeout(mockTimer)
+    upstreamAbort.abort()
+    try { res.end() } catch { /* socket already closed */ }
+  }
+
+  req.on('close', () => {
+    if (!res.writableEnded) {
+      closeStream()
+    }
+  })
+
+  try {
+    const { provider: providerName = 'deepseek', model, messages, temperature = 0.7, max_tokens = 2000 } = req.body
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ success: false, message: 'messages 不能为空' })
+    }
+
+    const provider = await resolveAIProvider(providerName)
+    providerForLog = provider.name
+    modelForLog = model || provider.defaultModel
+
+    if (!provider.enabled) {
+      return res.status(503).json({ success: false, message: `AI 供应商 [${provider.name}] 已被禁用，请联系管理员` })
+    }
+
+    res.status(200).set({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    })
+    res.flushHeaders?.()
+    if (res.socket) {
+      res.socket.setNoDelay(true)
+      res.socket.setKeepAlive(true)
+    }
+
+    heartbeatTimer = setInterval(() => {
+      if (!streamClosed) {
+        try { res.write(SSE_COMMENT_PING) } catch { closeStream() }
+      }
+    }, 15000)
+
+    if (!provider.apiKey) {
+      const fullText = buildMockAIResponse(messages)
+      const chunks = chunkTextForMock(fullText, 5)
+      let aggregated = ''
+      let cursor = 0
+      const pushNext = () => {
+        if (streamClosed) return
+        if (cursor >= chunks.length) {
+          res.write(formatSSEData({ event: 'done', usage: null, estimatedCost: 0, mode: 'mock-no-server-key' }))
+          res.write(SSE_DONE_LINE)
+          logServiceCall({
+            type: 'ai_call',
+            req,
+            provider: provider.name,
+            model: modelForLog,
+            status: 'mock-no-server-key',
+            durationMs: Date.now() - startedAt
+          })
+          closeStream()
+          return
+        }
+        const delta = chunks[cursor++]
+        aggregated += delta
+        try { res.write(formatSSEData({ delta })) } catch { closeStream(); return }
+        mockTimer = setTimeout(pushNext, 50)
+      }
+      pushNext()
+      return
+    }
+
+    const upstreamResp = await fetch(provider.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${provider.apiKey}`,
+        Accept: 'text/event-stream'
+      },
+      body: JSON.stringify({
+        model: model || provider.defaultModel,
+        messages,
+        temperature,
+        max_tokens,
+        stream: true,
+        stream_options: { include_usage: true }
+      }),
+      signal: upstreamAbort.signal
+    })
+
+    if (!upstreamResp.ok || !upstreamResp.body) {
+      const errBody = await upstreamResp.text().catch(() => '')
+      throw new Error(`AI 供应商上游错误 (${upstreamResp.status}): ${errBody.slice(0, 200)}`)
+    }
+
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let aggregatedContent = ''
+    let finalUsage = null
+
+    for await (const chunk of upstreamResp.body) {
+      if (streamClosed) break
+      const text = decoder.decode(chunk, { stream: true })
+      const split = splitSSEBuffer(buffer, text)
+      buffer = split.remainingBuffer
+      for (const eventBlock of split.events) {
+        const parsed = parseSSEEvent(eventBlock)
+        if (parsed.type === 'done') {
+          // 上游 [DONE] —— 等待循环自然结束后写本地 done 事件
+          continue
+        }
+        if (parsed.type === 'message') {
+          const { delta, usage } = extractDeltaAndUsage(parsed.payload)
+          if (delta) {
+            aggregatedContent += delta
+            try { res.write(formatSSEData({ delta })) } catch { closeStream(); return }
+          }
+          if (usage) finalUsage = usage
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      const parsed = parseSSEEvent(buffer)
+      if (parsed.type === 'message') {
+        const { delta, usage } = extractDeltaAndUsage(parsed.payload)
+        if (delta) {
+          aggregatedContent += delta
+          try { res.write(formatSSEData({ delta })) } catch { closeStream(); return }
+        }
+        if (usage) finalUsage = usage
+      }
+    }
+
+    if (streamClosed) return
+
+    const totalTokens = finalUsage?.total_tokens || 0
+    const estimatedCost = estimateAiCost(totalTokens, SECURITY_CONFIG.aiDefaultCostPer1kTokens)
+    res.write(formatSSEData({ event: 'done', usage: finalUsage, estimatedCost }))
+    res.write(SSE_DONE_LINE)
+
+    if (totalTokens > 0) {
+      await pool.execute(
+        `INSERT INTO ai_usage_logs
+         (id, user_id, provider_name, model_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          req.user.id,
+          provider.name,
+          modelForLog,
+          finalUsage.prompt_tokens || 0,
+          finalUsage.completion_tokens || 0,
+          totalTokens,
+          estimatedCost,
+          'success'
+        ]
+      ).catch(err => console.error('写入 ai_usage_logs 失败:', err))
+    }
+
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: provider.name,
+      model: modelForLog,
+      status: 'success-stream',
+      durationMs: Date.now() - startedAt,
+      tokens: totalTokens,
+      estimatedCost
+    })
+
+    closeStream()
+  } catch (error) {
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: providerForLog,
+      model: modelForLog,
+      status: 'failed-stream',
+      durationMs: Date.now() - startedAt,
+      error: error.message
+    })
+    console.error('AI 流式代理调用失败:', error)
+    if (!res.headersSent) {
+      res.status(502).json({ success: false, message: error.message || 'AI 流式代理调用失败' })
+    } else if (!streamClosed) {
+      try {
+        res.write(formatSSEData({ event: 'error', message: error.message || 'stream-error' }))
+        res.write(SSE_DONE_LINE)
+      } catch { /* socket already closed */ }
+      closeStream()
+    }
+  }
+})
+
+async function runCouncilPersona(persona, question, provider, model) {
+  if (!provider.apiKey) {
+    const content = buildMockAIResponse([
+      { role: 'system', content: persona.system },
+      { role: 'user', content: question }
+    ])
+    return {
+      personaId: persona.id,
+      personaName: persona.name,
+      icon: persona.icon,
+      content: `[${persona.name}] ${content}`,
+      status: 'mock-no-server-key',
+      tokens: 0
+    }
+  }
+  const upstream = await fetch(provider.baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${provider.apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: persona.system },
+        { role: 'user', content: question }
+      ],
+      temperature: persona.temperature,
+      max_tokens: 600,
+      stream: false
+    })
+  })
+  const data = await upstream.json().catch(() => ({}))
+  if (!upstream.ok) {
+    throw new Error(data.error?.message || `AI 供应商请求失败 (${upstream.status})`)
+  }
+  const content = data.choices?.[0]?.message?.content || ''
+  const usage = data.usage || {}
+  return {
+    personaId: persona.id,
+    personaName: persona.name,
+    icon: persona.icon,
+    content,
+    status: 'success',
+    tokens: usage.total_tokens || 0,
+    prompt_tokens: usage.prompt_tokens || 0,
+    completion_tokens: usage.completion_tokens || 0
+  }
+}
+
+async function runCouncilPersonaWithMessages(persona, messages, provider, model) {
+  if (!provider.apiKey) {
+    const content = buildMockAIResponse(messages)
+    return {
+      personaId: persona.id,
+      personaName: persona.name,
+      icon: persona.icon,
+      content: `[${persona.name}·二轮] ${content}`,
+      status: 'mock-no-server-key',
+      tokens: 0
+    }
+  }
+  const upstream = await fetch(provider.baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${provider.apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: persona.temperature,
+      max_tokens: 600,
+      stream: false
+    })
+  })
+  const data = await upstream.json().catch(() => ({}))
+  if (!upstream.ok) {
+    throw new Error(data.error?.message || `AI 供应商请求失败 (${upstream.status})`)
+  }
+  const content = data.choices?.[0]?.message?.content || ''
+  const usage = data.usage || {}
+  return {
+    personaId: persona.id,
+    personaName: persona.name,
+    icon: persona.icon,
+    content,
+    status: 'success',
+    tokens: usage.total_tokens || 0,
+    prompt_tokens: usage.prompt_tokens || 0,
+    completion_tokens: usage.completion_tokens || 0
+  }
+}
+
+app.post('/api/ai/council', authMiddleware, async (req, res) => {
+  const startedAt = Date.now()
+  let providerForLog = req.body?.provider || 'deepseek'
+  let modelForLog = req.body?.model || ''
+  try {
+    const { provider: providerName = 'deepseek', model, question, mode = 'parallel' } = req.body
+    const validation = validateCouncilQuestion(question)
+    if (!validation.ok) {
+      return res.status(400).json({ success: false, message: validation.message })
+    }
+    const trimmedQuestion = validation.value
+    const debateMode = mode === 'debate'
+
+    const provider = await resolveAIProvider(providerName)
+    providerForLog = provider.name
+    modelForLog = model || provider.defaultModel
+    if (!provider.enabled) {
+      return res.status(503).json({ success: false, message: `AI 供应商 [${provider.name}] 已被禁用` })
+    }
+
+    const round1 = await Promise.all(
+      COUNCIL_PERSONAS.map(p =>
+        runCouncilPersona(p, trimmedQuestion, provider, modelForLog)
+          .catch(err => buildCouncilFailureFallback(p, err.message))
+      )
+    )
+
+    if (!debateMode) {
+      const agg = aggregateCouncilResults(round1)
+      const { totalTokens, promptTokens, completionTokens, failedCount } = agg
+      const estimatedCost = estimateAiCost(totalTokens, SECURITY_CONFIG.aiDefaultCostPer1kTokens)
+
+      if (totalTokens > 0 && provider.apiKey) {
+        pool.execute(
+          `INSERT INTO ai_usage_logs
+           (id, user_id, provider_name, model_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            randomUUID(),
+            req.user.id,
+            provider.name,
+            modelForLog,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            estimatedCost,
+            'success-council'
+          ]
+        ).catch(err => console.error('写入 ai_usage_logs 失败 (council):', err))
+      }
+
+      logServiceCall({
+        type: 'ai_call',
+        req,
+        provider: provider.name,
+        model: modelForLog,
+        status: failedCount === 0 ? 'success-council' : 'partial-council',
+        durationMs: Date.now() - startedAt,
+        tokens: totalTokens,
+        estimatedCost
+      })
+
+      return res.json({
+        success: true,
+        provider: provider.name,
+        model: modelForLog,
+        personas: round1,
+        totalTokens,
+        estimatedCost,
+        mode: provider.apiKey ? 'live' : 'mock-no-server-key'
+      })
+    }
+
+    // ---- Debate mode: round 2 with peer awareness ----
+    const round2 = await Promise.all(
+      COUNCIL_PERSONAS.map(async (p, idx) => {
+        const peerResponses = round1.filter((_, i) => i !== idx)
+        const debatePrompt = buildDebatePeerPrompt(p, trimmedQuestion, peerResponses)
+        if (!debatePrompt) {
+          // No usable peer content -> skip with informative fallback
+          return buildCouncilFailureFallback(p, '第一轮其他人格均失败,跳过本轮')
+        }
+        try {
+          return await runCouncilPersonaWithMessages(p, debatePrompt.messages, provider, modelForLog)
+        } catch (err) {
+          return buildCouncilFailureFallback(p, err.message)
+        }
+      })
+    )
+
+    const debateAgg = aggregateDebateResults(round1, round2)
+    const totalTokens = debateAgg.totalTokens
+    const promptTokens = debateAgg.promptTokens
+    const completionTokens = debateAgg.completionTokens
+    const estimatedCost = estimateAiCost(totalTokens, SECURITY_CONFIG.aiDefaultCostPer1kTokens)
+
+    if (totalTokens > 0 && provider.apiKey) {
+      pool.execute(
+        `INSERT INTO ai_usage_logs
+         (id, user_id, provider_name, model_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          req.user.id,
+          provider.name,
+          modelForLog,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          estimatedCost,
+          debateAgg.status
+        ]
+      ).catch(err => console.error('写入 ai_usage_logs 失败 (debate):', err))
+    }
+
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: provider.name,
+      model: modelForLog,
+      status: debateAgg.status,
+      durationMs: Date.now() - startedAt,
+      tokens: totalTokens,
+      estimatedCost
+    })
+
+    res.json({
+      success: true,
+      provider: provider.name,
+      model: modelForLog,
+      mode: 'debate',
+      rounds: [
+        { round: 1, personas: round1 },
+        { round: 2, personas: round2 }
+      ],
+      // Keep `personas` field for convenience (=round1) so existing clients that
+      // ignore `rounds` still see something.
+      personas: round1,
+      totalTokens,
+      estimatedCost,
+      status: debateAgg.status
+    })
+  } catch (error) {
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: providerForLog,
+      model: modelForLog,
+      status: 'failed-council',
+      durationMs: Date.now() - startedAt,
+      error: error.message
+    })
+    console.error('AI 议事调用失败:', error)
+    res.status(502).json({ success: false, message: error.message || 'AI 议事调用失败' })
+  }
+})
+
+app.post('/api/ai/divination', authMiddleware, async (req, res) => {
+  const startedAt = Date.now()
+  let providerForLog = req.body?.provider || 'deepseek'
+  let modelForLog = req.body?.model || ''
+  try {
+    const { provider: providerName = 'deepseek', model, reroll = false } = req.body || {}
+    const userId = req.user.id
+    const dateKey = getDateKey()
+    const salt = reroll ? `reroll:${Date.now()}:${randomUUID().slice(0, 8)}` : null
+    const chapter = pickChapterDeterministic(userId, dateKey, salt)
+    const chapterText = getChapterText(chapter) || { content: '', modern: '' }
+
+    const provider = await resolveAIProvider(providerName)
+    providerForLog = provider.name
+    modelForLog = model || provider.defaultModel
+    if (!provider.enabled) {
+      return res.status(503).json({ success: false, message: `AI 供应商 [${provider.name}] 已被禁用` })
+    }
+
+    const { messages } = buildDivinationPrompt(chapter, chapterText.content, chapterText.modern)
+
+    if (!provider.apiKey) {
+      const mock = buildMockDivination(chapter)
+      logServiceCall({
+        type: 'ai_call',
+        req,
+        provider: provider.name,
+        model: modelForLog,
+        status: 'mock-divination',
+        durationMs: Date.now() - startedAt,
+        tokens: 0,
+        estimatedCost: 0
+      })
+      return res.json({
+        success: true,
+        provider: provider.name,
+        model: modelForLog,
+        chapter,
+        content: chapterText.content,
+        modern: chapterText.modern,
+        insight: mock.insight,
+        action: mock.action,
+        dateKey,
+        reroll: Boolean(reroll),
+        generatedAt: new Date().toISOString(),
+        mode: 'mock-no-server-key'
+      })
+    }
+
+    const upstream = await fetch(provider.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${provider.apiKey}`
+      },
+      body: JSON.stringify({
+        model: modelForLog,
+        messages,
+        temperature: 0.7,
+        max_tokens: 200,
+        stream: false
+      })
+    })
+    const data = await upstream.json().catch(() => ({}))
+    if (!upstream.ok) {
+      throw new Error(data.error?.message || `AI 供应商请求失败 (${upstream.status})`)
+    }
+    const rawText = data.choices?.[0]?.message?.content || ''
+    const parsed = parseDivinationContent(rawText)
+    const insight = parsed.insight || buildMockDivination(chapter).insight
+    const action = parsed.action || buildMockDivination(chapter).action
+
+    const usage = data.usage || {}
+    const totalTokens = usage.total_tokens || 0
+    const promptTokens = usage.prompt_tokens || 0
+    const completionTokens = usage.completion_tokens || 0
+    const estimatedCost = estimateAiCost(totalTokens, SECURITY_CONFIG.aiDefaultCostPer1kTokens)
+
+    if (totalTokens > 0) {
+      pool.execute(
+        `INSERT INTO ai_usage_logs
+         (id, user_id, provider_name, model_name, prompt_tokens, completion_tokens, total_tokens, estimated_cost, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          userId,
+          provider.name,
+          modelForLog,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          estimatedCost,
+          'success-divination'
+        ]
+      ).catch(err => console.error('写入 ai_usage_logs 失败 (divination):', err))
+    }
+
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: provider.name,
+      model: modelForLog,
+      status: 'success-divination',
+      durationMs: Date.now() - startedAt,
+      tokens: totalTokens,
+      estimatedCost
+    })
+
+    res.json({
+      success: true,
+      provider: provider.name,
+      model: modelForLog,
+      chapter,
+      content: chapterText.content,
+      modern: chapterText.modern,
+      insight,
+      action,
+      dateKey,
+      reroll: Boolean(reroll),
+      generatedAt: new Date().toISOString(),
+      totalTokens,
+      estimatedCost,
+      mode: 'live'
+    })
+  } catch (error) {
+    logServiceCall({
+      type: 'ai_call',
+      req,
+      provider: providerForLog,
+      model: modelForLog,
+      status: 'failed-divination',
+      durationMs: Date.now() - startedAt,
+      error: error.message
+    })
+    console.error('AI 道签调用失败:', error)
+    res.status(502).json({ success: false, message: error.message || 'AI 道签调用失败' })
+  }
+})
+
+app.get('/api/user/value-report', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const [monthRows] = await pool.execute(
+      `SELECT COUNT(*) AS calls, COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(estimated_cost), 0) AS cost
+       FROM ai_usage_logs
+       WHERE user_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')`,
+      [userId]
+    )
+    const [lifetimeRows] = await pool.execute(
+      `SELECT COUNT(*) AS calls, COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(estimated_cost), 0) AS cost
+       FROM ai_usage_logs
+       WHERE user_id = ?`,
+      [userId]
+    )
+    const [progressRows] = await pool.execute(
+      `SELECT COUNT(DISTINCT chapter_id) AS learned
+       FROM learning_progress
+       WHERE user_id = ? AND completed = 1`,
+      [userId]
+    )
+
+    const monthRow = monthRows && monthRows[0] ? monthRows[0] : { calls: 0, tokens: 0, cost: 0 }
+    const lifetimeRow = lifetimeRows && lifetimeRows[0] ? lifetimeRows[0] : { calls: 0, tokens: 0, cost: 0 }
+    const learnedChapters = progressRows && progressRows[0] ? Number(progressRows[0].learned) || 0 : 0
+
+    const report = formatValueReport({ monthRow, lifetimeRow, learnedChapters })
+    res.json({ success: true, ...report, generatedAt: new Date().toISOString() })
+  } catch (error) {
+    console.error('获取价值报告失败:', error)
+    res.status(500).json({ success: false, message: error.message || '获取价值报告失败' })
+  }
+})
+
+app.post('/api/leads', async (req, res) => {
+  try {
+    const { valid, errors } = validateLeadInput(req.body)
+    if (!valid) {
+      return res.status(400).json({ success: false, message: '提交内容有误', errors })
+    }
+    const normalized = normalizeLeadInput(req.body)
+    const [result] = await pool.execute(
+      `INSERT INTO leads (name, email, company, phone, team_size, intent, note, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        normalized.name,
+        normalized.email,
+        normalized.company,
+        normalized.phone,
+        normalized.teamSize,
+        normalized.intent,
+        normalized.note,
+        getClientIp(req)
+      ]
+    )
+    res.json({
+      success: true,
+      id: result.insertId,
+      message: '已收到您的需求,我们会在 24 小时内联系您'
+    })
+  } catch (error) {
+    console.error('提交销售线索失败:', error)
+    res.status(500).json({ success: false, message: error.message || '提交失败,请稍后再试' })
+  }
+})
+
+app.get('/api/admin/leads', adminAuthMiddleware, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 20))
+    const offset = (page - 1) * pageSize
+    const statusFilter = req.query.status
+    const params = []
+    let where = ''
+    if (statusFilter && typeof statusFilter === 'string') {
+      where = 'WHERE status = ?'
+      params.push(statusFilter)
+    }
+    const [rows] = await pool.execute(
+      `SELECT id, name, email, company, phone, team_size, intent, note, status, ip_address, created_at
+       FROM leads ${where}
+       ORDER BY created_at DESC
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
+    )
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM leads ${where}`,
+      params
+    )
+    res.json({
+      success: true,
+      page,
+      pageSize,
+      total: countRows[0]?.total || 0,
+      leads: rows,
+      options: {
+        teamSize: LEADS_TEAM_SIZE_OPTIONS,
+        intent: LEADS_INTENT_OPTIONS
+      }
+    })
+  } catch (error) {
+    console.error('获取销售线索列表失败:', error)
+    res.status(500).json({ success: false, message: error.message || '获取失败' })
+  }
+})
+
+const LEAD_STATUS_VALUES = new Set(['new', 'contacted', 'qualified', 'closed'])
+
+app.patch('/api/admin/leads/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: '无效的 lead id' })
+    }
+    const { status } = req.body || {}
+    if (!LEAD_STATUS_VALUES.has(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `status 必须为 ${[...LEAD_STATUS_VALUES].join(' | ')}`
+      })
+    }
+    const [result] = await pool.execute(
+      'UPDATE leads SET status = ? WHERE id = ?',
+      [status, id]
+    )
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: '未找到对应的线索' })
+    }
+    res.json({ success: true })
+  } catch (error) {
+    console.error('更新销售线索状态失败:', error)
+    res.status(500).json({ success: false, message: error.message || '更新失败' })
   }
 })
 

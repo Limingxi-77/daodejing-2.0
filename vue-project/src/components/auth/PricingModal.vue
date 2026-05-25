@@ -1,6 +1,6 @@
 <template>
-  <div v-if="showPricingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto relative border border-secondary/20">
+  <div v-if="showPricingModal" @click.self="closeModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in cursor-pointer">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto relative border border-secondary/20 cursor-default" @click.stop>
 
       <!-- Close Button -->
       <button @click="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-dark transition-colors z-10">
@@ -8,14 +8,23 @@
       </button>
 
       <div class="p-8 md:p-12">
-        <div class="text-center mb-10">
+        <div class="text-center mb-8">
           <h2 class="text-3xl font-bold text-primary mb-3 font-serif">选择您的修行之路</h2>
-          <p class="text-gray-500">解锁更多智慧，开启深度悟道之旅</p>
+          <p class="text-gray-500">个人订阅 · 团队席位 · 企业定制,因材施教</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- C 端 3 档 -->
+        <div class="mb-4">
+          <div class="flex items-center mb-4">
+            <div class="h-px flex-1 bg-secondary/20"></div>
+            <span class="px-4 text-sm text-dark/60 font-serif">个人方案</span>
+            <div class="h-px flex-1 bg-secondary/20"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <!-- Free Plan -->
-          <div class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gray-50/50">
+          <div data-testid="tier-card-free" class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gray-50/50">
             <div class="mb-4">
               <h3 class="text-xl font-bold text-dark">布衣 (免费版)</h3>
               <div class="text-3xl font-bold text-primary mt-2">¥0<span class="text-sm text-gray-500 font-normal">/月</span></div>
@@ -38,7 +47,7 @@
           </div>
 
           <!-- Pro Plan -->
-          <div class="border-2 border-primary rounded-xl p-6 relative flex flex-col shadow-xl transform md:-translate-y-4 bg-white">
+          <div data-testid="tier-card-pro" class="border-2 border-primary rounded-xl p-6 relative flex flex-col shadow-xl transform md:-translate-y-4 bg-white">
             <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-primary text-white px-4 py-1 rounded-full text-sm font-bold shadow-md">
               最受欢迎
             </div>
@@ -71,7 +80,7 @@
           </div>
 
           <!-- Master Plan -->
-          <div class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gradient-to-b from-yellow-50 to-white">
+          <div data-testid="tier-card-master" class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gradient-to-b from-yellow-50 to-white">
             <div class="mb-4">
               <h3 class="text-xl font-bold text-dark">宗师 (悟道版)</h3>
               <div class="text-3xl font-bold text-primary mt-2">¥49<span class="text-sm text-gray-500 font-normal">/月</span></div>
@@ -101,23 +110,116 @@
           </div>
         </div>
 
+        <!-- B 端 2 档 -->
+        <div class="mb-4">
+          <div class="flex items-center mb-4">
+            <div class="h-px flex-1 bg-secondary/20"></div>
+            <span class="px-4 text-sm text-dark/60 font-serif">企业 / 团队方案</span>
+            <div class="h-px flex-1 bg-secondary/20"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Team Plan -->
+          <div data-testid="tier-card-team" class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-50 to-blue-50/40 border-blue-200">
+            <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white">
+              NEW
+            </div>
+            <div class="mb-4">
+              <div class="flex items-center mb-2">
+                <i class="fas fa-users text-blue-600 mr-2"></i>
+                <h3 class="text-xl font-bold text-dark">团队 (Team)</h3>
+              </div>
+              <div class="text-3xl font-bold text-blue-700 mt-2">¥299<span class="text-sm text-gray-500 font-normal">/月 · 10 席</span></div>
+              <p class="text-xs text-dark/50 mt-1">折合 ¥29.9/人,5 折优惠</p>
+            </div>
+            <ul class="space-y-2 mb-8 flex-1">
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-blue-600 mr-2"></i> 10 个团队席位
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-blue-600 mr-2"></i> Pro 全部权益(每日 500 次/账号)
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-blue-600 mr-2"></i> 团队修行仪表盘
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-blue-600 mr-2"></i> 优先技术支持
+              </li>
+            </ul>
+            <button
+              @click="upgrade('team')"
+              :disabled="teamDisabled"
+              class="w-full py-3 rounded-lg font-bold transition-colors shadow-md"
+              :class="teamBtnClass"
+              data-testid="upgrade-team-btn"
+            >
+              {{ teamBtnLabel }}
+            </button>
+          </div>
+
+          <!-- Enterprise Plan -->
+          <div data-testid="tier-card-enterprise" class="border rounded-xl p-6 relative flex flex-col hover:shadow-lg transition-shadow bg-gradient-to-br from-slate-100 to-amber-50/60 border-amber-300">
+            <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white">
+              定制
+            </div>
+            <div class="mb-4">
+              <div class="flex items-center mb-2">
+                <i class="fas fa-building text-amber-600 mr-2"></i>
+                <h3 class="text-xl font-bold text-dark">企业 (Enterprise)</h3>
+              </div>
+              <div class="text-3xl font-bold text-amber-700 mt-2">联系洽谈<span class="text-sm text-gray-500 font-normal block">私有部署 · 无限席位</span></div>
+            </div>
+            <ul class="space-y-2 mb-8 flex-1">
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-amber-600 mr-2"></i> 无限席位 / 用量
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-amber-600 mr-2"></i> 私有化部署(物理隔离)
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-amber-600 mr-2"></i> 定制 Persona / 语料库
+              </li>
+              <li class="flex items-center text-sm text-dark">
+                <i class="fas fa-check text-amber-600 mr-2"></i> Open API + SLA 保障
+              </li>
+            </ul>
+            <button
+              @click="openEnterpriseModal"
+              class="w-full py-3 rounded-lg font-bold transition-colors shadow-md bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700"
+              data-testid="enterprise-contact-btn"
+            >
+              <i class="fas fa-handshake mr-2"></i>预约洽谈
+            </button>
+          </div>
+        </div>
+
         <p class="text-center text-xs text-gray-400 mt-8">
-          * 这是一个演示项目，点击按钮将模拟支付过程并直接升级
+          * 这是一个演示项目,点击个人方案按钮将模拟支付过程并直接升级;企业方案将打开预约表单
         </p>
       </div>
     </div>
+
+    <EnterpriseContactModal
+      v-if="enterpriseModalOpen"
+      @close="enterpriseModalOpen = false"
+      @submitted="onEnterpriseSubmitted"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore, type SubscriptionTier } from '@/stores/auth'
+import EnterpriseContactModal from '@/components/auth/EnterpriseContactModal.vue'
 
 const authStore = useAuthStore()
 const { showPricingModal, user } = storeToRefs(authStore)
 
-const tierOrder: Record<string, number> = { free: 0, pro: 1, master: 2 }
+const enterpriseModalOpen = ref(false)
+
+const tierOrder: Record<string, number> = { free: 0, pro: 1, team: 2, master: 3 }
 const currentTierOrder = computed(() => tierOrder[user.value?.subscription?.tier || 'free'] || 0)
 
 // Pro Plan button
@@ -133,18 +235,44 @@ const proBtnClass = computed(() => {
 })
 
 // Master Plan button
-const masterDisabled = computed(() => currentTierOrder.value >= 2)
+const masterDisabled = computed(() => user.value?.subscription?.tier === 'master')
 const masterBtnLabel = computed(() => {
-  if (currentTierOrder.value >= 2) return '当前方案'
+  if (user.value?.subscription?.tier === 'master') return '当前方案'
   return '成为宗师'
 })
 const masterBtnClass = computed(() => {
-  if (currentTierOrder.value >= 2) return 'bg-gray-200 text-gray-500 cursor-not-allowed'
+  if (user.value?.subscription?.tier === 'master') return 'bg-gray-200 text-gray-500 cursor-not-allowed'
   return 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white hover:from-yellow-600 hover:to-yellow-700'
+})
+
+// Team Plan button
+const teamDisabled = computed(() => user.value?.subscription?.tier === 'team' || user.value?.subscription?.tier === 'master')
+const teamBtnLabel = computed(() => {
+  if (user.value?.subscription?.tier === 'team') return '当前方案'
+  if (user.value?.subscription?.tier === 'master') return '已包含在宗师版'
+  return '升级团队版'
+})
+const teamBtnClass = computed(() => {
+  if (teamDisabled.value) return 'bg-gray-200 text-gray-500 cursor-not-allowed'
+  return 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
 })
 
 const closeModal = () => {
   showPricingModal.value = false
+}
+
+const openEnterpriseModal = () => {
+  enterpriseModalOpen.value = true
+}
+
+const onEnterpriseSubmitted = () => {
+  enterpriseModalOpen.value = false
+}
+
+const tierLabel: Record<string, string> = {
+  pro: '居士',
+  team: '团队版',
+  master: '宗师'
 }
 
 const upgrade = async (tier: SubscriptionTier) => {
@@ -155,10 +283,10 @@ const upgrade = async (tier: SubscriptionTier) => {
 
   try {
     await authStore.upgradeSubscription(tier)
-    alert(`恭喜！您已成功升级为 ${tier === 'pro' ? '居士' : '宗师'}！`)
+    alert(`恭喜!您已成功升级为 ${tierLabel[tier] || tier}!`)
     showPricingModal.value = false
   } catch (error: any) {
-    alert(error?.message || '升级失败，请稍后再试')
+    alert(error?.message || '升级失败,请稍后再试')
   } finally {
     btn.innerText = originalText
     btn.disabled = false
@@ -184,7 +312,8 @@ const upgrade = async (tier: SubscriptionTier) => {
 }
 
 :global(html.zen-mode) .bg-gray-50\/50,
-:global(html.zen-mode) .bg-gradient-to-b {
+:global(html.zen-mode) .bg-gradient-to-b,
+:global(html.zen-mode) .bg-gradient-to-br {
   background: rgba(255,255,255,0.05);
   background-image: none;
 }

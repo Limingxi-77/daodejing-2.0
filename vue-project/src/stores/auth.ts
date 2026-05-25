@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiClient, setToken, getToken, removeToken } from '@/services/api'
 
-export type SubscriptionTier = 'free' | 'pro' | 'master'
+export type SubscriptionTier = 'free' | 'pro' | 'master' | 'team'
 
 export interface User {
   id: string
@@ -134,7 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const checkLimit = () => {
     const tier = user.value?.subscription.tier || 'free'
-    const limits: Record<string, number> = { free: 5, pro: 50, master: 9999 }
+    const limits: Record<string, number> = { free: 5, pro: 50, team: 500, master: 9999 }
     return dailyUsage.value.count < limits[tier]
   }
 

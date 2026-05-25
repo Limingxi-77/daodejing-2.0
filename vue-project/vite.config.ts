@@ -9,6 +9,28 @@ const pwaPlugin = VitePWA({
     // 开发模式下关闭 SW，避免 SWR 缓存让 HMR 后第一次切换"切了又切"
     enabled: false
   },
+  // 排除 AI 流式 / TTS 等长连接路径,避免 SW 拦截 SSE 导致打字机效果中断
+  workbox: {
+    navigateFallbackDenylist: [/^\/api\/ai\//, /^\/api\/tts\//],
+    runtimeCaching: [
+      {
+        urlPattern: /^https?:\/\/[^/]+\/api\/resources(\/|\?|$)/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'api-resources',
+          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 }
+        }
+      },
+      {
+        urlPattern: /^https?:\/\/[^/]+\/api\/community\/posts(\/|\?|$)/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'api-community-posts',
+          expiration: { maxEntries: 30, maxAgeSeconds: 60 * 5 }
+        }
+      }
+    ]
+  },
   includeAssets: ['logo.svg'],
   manifest: {
     name: '道德经AI平台 2.0',
@@ -49,13 +71,14 @@ export default defineConfig({
     }
   },
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
     // 把大依赖拆成独立 chunk，避免首屏被巨型 vendor 阻塞
     rollupOptions: {
       output: {
         manualChunks: {
           'vue-core': ['vue', 'vue-router', 'pinia'],
           'three': ['three'],
-          'd3': ['d3'],
           'markdown': ['marked', 'dompurify'],
           'search': ['fuse.js']
         }

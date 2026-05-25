@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-32 pb-20 px-4 md:px-8 bg-transparent">
+  <div class="pt-32 pb-20 px-4 md:px-8 bg-transparent" data-testid="ai-interpretation-page">
     <div class="container mx-auto">
       <!-- 页面标题和工具栏 -->
       <div class="flex items-center justify-between mb-6">
@@ -8,14 +8,43 @@
             AI解读道德经
           </h1>
           <p class="text-xl text-dark mt-2">
-            与AI对话，深入理解《道德经》的智慧
+            {{ mode === 'council' ? '三家视角并行回答你的提问,体会同一问题的不同解读' : '与AI对话，深入理解《道德经》的智慧' }}
           </p>
         </div>
 
         <!-- 工具栏 -->
         <div class="flex items-center gap-3">
+          <!-- 模式切换 -->
+          <div class="inline-flex rounded-lg border border-gray-200/70 bg-white/80 backdrop-blur-sm p-1" role="tablist" aria-label="解读模式">
+            <button
+              type="button"
+              class="mode-tab"
+              :class="{ active: mode === 'single' }"
+              role="tab"
+              :aria-selected="mode === 'single'"
+              data-testid="mode-tab-single"
+              @click="mode = 'single'"
+            >
+              <i class="fas fa-user mr-1" aria-hidden="true"></i>
+              <span class="hidden sm:inline">单人解读</span>
+            </button>
+            <button
+              type="button"
+              class="mode-tab"
+              :class="{ active: mode === 'council' }"
+              role="tab"
+              :aria-selected="mode === 'council'"
+              data-testid="mode-tab-council"
+              @click="mode = 'council'"
+            >
+              <i class="fas fa-users mr-1" aria-hidden="true"></i>
+              <span class="hidden sm:inline">三家会议</span>
+            </button>
+          </div>
+
           <!-- 道德经语音合成入口 -->
           <button
+            v-if="mode === 'single'"
             type="button"
             class="btn-toolbar btn-primary"
             @click="router.push('/tts')"
@@ -27,7 +56,7 @@
 
           <!-- 语音合成按钮 -->
           <button
-            v-if="lastAIMessage"
+            v-if="mode === 'single' && lastAIMessage"
             type="button"
             class="btn-toolbar"
             :class="{ active: isPlaying }"
@@ -44,6 +73,7 @@
 
           <!-- 对话历史切换按钮 -->
           <button
+            v-if="mode === 'single'"
             type="button"
             class="btn-toolbar"
             :class="{ active: showHistory }"
@@ -57,6 +87,7 @@
 
           <!-- 新建对话按钮 -->
           <button
+            v-if="mode === 'single'"
             type="button"
             class="btn-toolbar"
             @click="createNewConversation"
@@ -68,7 +99,8 @@
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row gap-6">
+      <!-- 单人解读模式 -->
+      <div v-if="mode === 'single'" class="flex flex-col lg:flex-row gap-6">
         <!-- 可折叠对话历史侧边栏 -->
         <div
           class="lg:w-80 flex-shrink-0 transition-[opacity,transform] duration-300"
@@ -105,27 +137,36 @@
           class="flex-1 min-w-0 transition-[width] duration-300"
           :class="showHistory ? 'lg:w-[calc(100%-20rem)]' : 'lg:w-full'"
         >
-          <!-- AI聊天组件 -->
           <AIChat />
-
-          <!-- 章节选择组件 -->
-          <ChapterSelector />
-
-          <!-- 热门问题组件 -->
-          <PopularQuestions />
         </div>
+      </div>
+
+      <!-- 三家会议模式 -->
+      <CouncilPanel v-else ref="councilPanelRef" />
+
+      <!-- 公共辅助内容 — 章节、场景卡、热门问题(两种模式都显示,确保切换一致性) -->
+      <div class="mt-8">
+        <ChapterSelector />
+      </div>
+      <div class="mt-8">
+        <ScenarioCards />
+      </div>
+      <div class="mt-8">
+        <PopularQuestions />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import AIChat from '@/components/chat/AIChat.vue'
 import ChapterSelector from '@/components/chat/ChapterSelector.vue'
 import PopularQuestions from '@/components/chat/PopularQuestions.vue'
+import ScenarioCards from '@/components/chat/ScenarioCards.vue'
 import ConversationHistory from '@/components/chat/ConversationHistory.vue'
+import CouncilPanel from '@/components/chat/CouncilPanel.vue'
 import { useChatStore } from '@/stores/chat'
 import { useTTS } from '@/composables/useTTS'
 import { storeToRefs } from 'pinia'
@@ -135,6 +176,34 @@ const router = useRouter()
 const chatStore = useChatStore()
 const { messages } = storeToRefs(chatStore)
 const showHistory = ref(false)
+const mode = ref<'single' | 'council'>('single')
+const councilPanelRef = ref<InstanceType<typeof CouncilPanel> | null>(null)
+
+// 模式感知的 prompt 分发:在单人模式直接走流式;在三家会议模式回填到 CouncilPanel 输入框
+const handlePromptPick = (prompt: string) => {
+  const text = (prompt ?? '').trim()
+  if (!text) return
+  if (mode.value === 'council') {
+    councilPanelRef.value?.setQuestion(text)
+    requestAnimationFrame(() => {
+      const target = document.querySelector('[data-testid="council-question-input"]') as HTMLTextAreaElement | null
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target.focus()
+      }
+    })
+    return
+  }
+  // 默认单人模式:走流式 AI 回复
+  void chatStore.sendStream(text)
+  requestAnimationFrame(() => {
+    const target = document.querySelector('[data-testid="ai-chat"]') || document.querySelector('.ai-chat-container')
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+provide('aiInterpretationMode', mode)
+provide('aiInterpretationPromptPick', handlePromptPick)
 
 // 语音合成
 const { speak, stop } = useTTS()
@@ -222,6 +291,36 @@ const createNewConversation = async () => {
 .btn-toolbar.btn-primary {
   border-color: #10b981;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+/* 模式切换 Tab */
+.mode-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.mode-tab:hover,
+.mode-tab:focus-visible {
+  color: #3b82f6;
+  outline: none;
+}
+
+.mode-tab:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.mode-tab.active {
+  background: #3b82f6;
   color: white;
 }
 

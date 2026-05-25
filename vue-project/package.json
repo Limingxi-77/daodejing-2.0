@@ -10,8 +10,15 @@
     "e2e": "playwright test tests/e2e/smoke.spec.ts",
     "e2e:headed": "playwright test tests/e2e/smoke.spec.ts --headed",
     "e2e:integration": "playwright test tests/e2e/integration.spec.ts",
+    "e2e:stream": "playwright test tests/e2e/ai-stream.spec.ts",
+    "e2e:council": "playwright test tests/e2e/council.spec.ts",
+    "e2e:scenarios": "playwright test tests/e2e/scenario-cards.spec.ts",
+    "e2e:enterprise": "playwright test tests/e2e/pricing-enterprise.spec.ts",
+    "e2e:business-plan": "playwright test tests/e2e/business-plan.spec.ts",
     "e2e:install": "playwright install --with-deps chromium",
+    "lighthouse": "lhci autorun --config=.lighthouserc.json",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "lint:check": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
@@ -20,8 +27,7 @@
     "@types/three": "^0.182.0",
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
-    "chart.js": "^4.5.1",
-    "d3": "^7.9.0",
+    "daodejing-2.0-workspace": "file:..",
     "dompurify": "^3.4.5",
     "fuse.js": "^7.1.0",
     "marked": "^17.0.1",
@@ -32,8 +38,8 @@
     "vue-router": "^4.2.0"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.14.0",
     "@playwright/test": "^1.60.0",
-    "@types/d3": "^7.4.3",
     "@vitejs/plugin-vue": "^4.5.0",
     "@vue/eslint-config-prettier": "^9.0.0",
     "@vue/eslint-config-typescript": "^12.0.0",

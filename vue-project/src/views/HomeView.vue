@@ -55,21 +55,34 @@
               </div>
             </transition>
 
-            <h3 class="text-2xl font-bold mb-4 relative z-10">今日摘句</h3>
+            <h3 class="text-2xl font-bold mb-4 relative z-10">今日道签</h3>
             <p class="text-center mb-6 text-white/80 relative z-10">
-              从一段短句开始，给今天的阅读留一个入口。<br/>
-              不求玄妙，先把一句话读清楚。
+              基于《道德经》原文,由 AI 为你生成今日提点与行动建议。<br/>
+              一段话、一个动作,给今天一个清晰的入口。
             </p>
-            <button 
-              @click="drawFortune" 
-              :disabled="hasDrawn || isShaking"
+            <button
+              @click="drawFortune"
+              :disabled="hasDrawn || isShaking || isLoading"
               class="px-6 py-2 bg-white text-primary rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-70 disabled:cursor-not-allowed relative z-10"
               :class="{'animate-shake': isShaking}"
+              data-testid="dao-sign-draw"
             >
-              {{ hasDrawn ? '今日已读' : (isShaking ? '抽取中...' : '抽取摘句') }}
+              {{ hasDrawn ? '今日已读' : (isShaking || isLoading ? '抽取中...' : '抽取道签') }}
             </button>
-            
-            <button 
+
+            <button
+              v-if="hasDrawn"
+              @click="rerollFortune"
+              :disabled="!canReroll || isShaking || isLoading"
+              class="mt-3 px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-sm border border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative z-10"
+              :title="canReroll ? '消耗 30 经验值重新抽取' : '今日经验值不足 30,明日再来'"
+              data-testid="dao-sign-reroll"
+            >
+              <i class="fas fa-dice mr-1"></i> 再抽一签 (-30 XP)
+            </button>
+            <p v-if="rerollError" class="mt-2 text-xs text-red-200 relative z-10" data-testid="dao-sign-reroll-error">{{ rerollError }}</p>
+
+            <button
               @click="showMoodRescue = true"
               class="mt-6 text-white/90 hover:text-white underline text-sm relative z-10 flex items-center"
             >
@@ -82,9 +95,11 @@
                 <i class="fas fa-yin-yang text-6xl mb-4 opacity-20 animate-spin-slow"></i>
                 <p>点击左侧按钮，开启今日道家智慧</p>
               </div>
-              <div v-else class="text-center flex flex-col items-center justify-center h-full" key="content">
-                <div class="mb-2 text-sm text-primary font-bold tracking-widest uppercase w-full">今日摘句 · {{ currentFortune.type }}</div>
-                
+              <div v-else class="text-center flex flex-col items-center justify-center h-full" key="content" data-testid="dao-sign-card">
+                <div class="mb-2 text-sm text-primary font-bold tracking-widest uppercase w-full">
+                  {{ currentFortune.fromAI ? '今日道签 · AI 解读' : '今日摘句 · ' + currentFortune.type }}
+                </div>
+
                 <!-- 垂直文本容器 -->
                 <div class="vertical-text my-4 retro-card transition-all duration-500">
                   <h4 class="text-2xl font-bold text-dark font-serif tracking-widest leading-loose">"{{ currentFortune.quote }}"</h4>
@@ -92,7 +107,19 @@
                 </div>
 
                 <div class="w-16 h-1 bg-accent mx-auto mb-4 rounded-full opacity-50"></div>
-                
+
+                <!-- AI 提点 + 行动建议 (仅当来自 AI 道签时) -->
+                <div v-if="currentFortune.fromAI && (currentFortune.insight || currentFortune.action)" class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mb-3">
+                  <div v-if="currentFortune.insight" class="bg-primary/5 border border-primary/15 rounded-lg p-3 text-left" data-testid="dao-sign-insight">
+                    <div class="text-xs font-bold text-primary mb-1"><i class="fas fa-lightbulb mr-1"></i>今日提点</div>
+                    <p class="text-gray-700 text-sm leading-relaxed">{{ currentFortune.insight }}</p>
+                  </div>
+                  <div v-if="currentFortune.action" class="bg-accent/5 border border-accent/20 rounded-lg p-3 text-left" data-testid="dao-sign-action">
+                    <div class="text-xs font-bold text-accent mb-1"><i class="fas fa-shoe-prints mr-1"></i>今日行动</div>
+                    <p class="text-gray-700 text-sm leading-relaxed">{{ currentFortune.action }}</p>
+                  </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4 text-left bg-gray-50 p-4 rounded-lg w-full">
                   <div>
                     <span class="text-green-600 font-bold mr-2"><i class="fas fa-check-circle"></i> 宜</span>
@@ -107,6 +134,17 @@
             </transition>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 我的修行账单(仅已登录可见) -->
+    <section v-if="authStore.isLoggedIn" class="py-8 bg-secondary/5">
+      <div class="container mx-auto px-4 md:px-8 max-w-5xl">
+        <ValueReportCard
+          :data="valueReport"
+          :loading="valueReportLoading"
+          @refresh="reloadValueReport"
+        />
       </div>
     </section>
 
@@ -224,11 +262,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCultivationStore } from '../stores/cultivation'
+import { useAuthStore } from '@/stores/auth'
+import { fetchTodayDivination, type DivinationResponse } from '@/services/divinationService'
+import { fetchValueReport, clearValueReportCache, type ValueReport } from '@/services/valueReportService'
 import MoodRescueModal from '@/components/learning/MoodRescueModal.vue'
+import ValueReportCard from '@/components/profile/ValueReportCard.vue'
 
 const cultivationStore = useCultivationStore()
+const authStore = useAuthStore()
+
+const valueReport = ref<ValueReport | null>(null)
+const valueReportLoading = ref(false)
+
+async function loadValueReport(force = false) {
+  if (!authStore.isLoggedIn) {
+    valueReport.value = null
+    return
+  }
+  const userId = authStore.user?.id || 'anonymous'
+  valueReportLoading.value = true
+  try {
+    valueReport.value = await fetchValueReport(userId, { force })
+  } catch {
+    valueReport.value = null
+  } finally {
+    valueReportLoading.value = false
+  }
+}
+
+function reloadValueReport() {
+  if (!authStore.isLoggedIn) return
+  clearValueReportCache(authStore.user?.id || 'anonymous')
+  loadValueReport(true)
+}
 
 interface Fortune {
   type: string
@@ -236,10 +304,19 @@ interface Fortune {
   source: string
   goodFor: string
   badFor: string
+  insight?: string
+  action?: string
+  chapter?: number
+  fromAI?: boolean
 }
 
 const hasDrawn = ref(false)
 const currentFortune = ref<Fortune | null>(null)
+const isLoading = ref(false)
+const rerollError = ref('')
+
+const REROLL_COST = 30
+const canReroll = computed(() => cultivationStore.exp >= REROLL_COST)
 
 const fortunes: Fortune[] = [
   { type: '上上签', quote: '上善若水。水善利万物而不争，处众人之所恶，故几于道。', source: '第八章', goodFor: '谦虚、包容、顺势而为', badFor: '争强好胜、刚愎自用' },
@@ -261,42 +338,127 @@ const triggerHaptic = (pattern: number | number[] = 50) => {
   }
 }
 
-const drawFortune = () => {
-  if (hasDrawn.value || isShaking.value) return
-  
-  // Start shaking
+function mapDivinationToFortune(d: DivinationResponse): Fortune {
+  return {
+    type: '今日道签',
+    quote: d.content,
+    source: `第${d.chapter}章`,
+    goodFor: d.action || '顺势而为',
+    badFor: '执着、强求',
+    insight: d.insight,
+    action: d.action,
+    chapter: d.chapter,
+    fromAI: true
+  }
+}
+
+function fallbackToLocalFortune() {
+  const randomIndex = Math.floor(Math.random() * fortunes.length)
+  currentFortune.value = fortunes[randomIndex]
+  hasDrawn.value = true
+  localStorage.setItem('dailyFortuneDate', new Date().toDateString())
+  localStorage.setItem('dailyFortuneIndex', randomIndex.toString())
+}
+
+const drawFortune = async () => {
+  if (hasDrawn.value || isShaking.value || isLoading.value) return
+
+  if (!authStore.isLoggedIn) {
+    authStore.openAuthModal('login')
+    return
+  }
+
   isShaking.value = true
-  triggerHaptic([50, 50, 50, 50, 50]) // Vibrate pattern
-  
-  // 模拟抽签动画效果
+  isLoading.value = true
+  triggerHaptic([50, 50, 50, 50, 50])
+
+  let aiResult: DivinationResponse | null = null
+  try {
+    aiResult = await fetchTodayDivination(authStore.user?.id || 'anonymous', { reroll: false })
+  } catch (err) {
+    console.warn('道签 AI 调用失败，回落到本地:', err)
+  }
+
   setTimeout(() => {
     isShaking.value = false
-    const randomIndex = Math.floor(Math.random() * fortunes.length)
-    currentFortune.value = fortunes[randomIndex]
-    hasDrawn.value = true
-    
-    // Success haptic
+    isLoading.value = false
+    if (aiResult) {
+      currentFortune.value = mapDivinationToFortune(aiResult)
+      hasDrawn.value = true
+      localStorage.setItem('dailyFortuneDate', new Date().toDateString())
+    } else {
+      fallbackToLocalFortune()
+    }
+
     triggerHaptic(100)
-    
-    localStorage.setItem('dailyFortuneDate', new Date().toDateString())
-    localStorage.setItem('dailyFortuneIndex', randomIndex.toString())
-    
-    // 增加经验值
     cultivationStore.addExp(50, '每日一签')
     showXpAnimation.value = true
     setTimeout(() => showXpAnimation.value = false, 2000)
-  }, 1500) // Longer duration for effect
+  }, 1500)
+}
+
+const rerollFortune = async () => {
+  if (isLoading.value || isShaking.value) return
+  rerollError.value = ''
+  if (!authStore.isLoggedIn) {
+    authStore.openAuthModal('login')
+    return
+  }
+  if (!canReroll.value) {
+    rerollError.value = '今日经验不足 30,明日再来'
+    return
+  }
+
+  isShaking.value = true
+  isLoading.value = true
+  triggerHaptic([50, 50, 50])
+
+  let aiResult: DivinationResponse | null = null
+  try {
+    aiResult = await fetchTodayDivination(authStore.user?.id || 'anonymous', { reroll: true })
+  } catch (err) {
+    rerollError.value = err instanceof Error ? err.message : '再抽失败,请稍后再试'
+  }
+
+  setTimeout(() => {
+    isShaking.value = false
+    isLoading.value = false
+    if (aiResult) {
+      currentFortune.value = mapDivinationToFortune(aiResult)
+      cultivationStore.addExp(-REROLL_COST, '再抽一签')
+      triggerHaptic(100)
+    }
+  }, 1200)
 }
 
 onMounted(() => {
-  // 检查今日是否已抽签
   const savedDate = localStorage.getItem('dailyFortuneDate')
   const savedIndex = localStorage.getItem('dailyFortuneIndex')
-  
-  if (savedDate === new Date().toDateString() && savedIndex) {
+
+  // 已登录用户:优先取 AI 缓存
+  if (authStore.isLoggedIn) {
+    fetchTodayDivination(authStore.user?.id || 'anonymous', { reroll: false })
+      .then(cached => {
+        // 仅当今天有缓存时(同日多次访问) 才直接展示;否则保持空状态等用户主动抽签
+        const today = new Date().toDateString()
+        if (savedDate === today) {
+          currentFortune.value = mapDivinationToFortune(cached)
+          hasDrawn.value = true
+        }
+      })
+      .catch(() => {
+        // 缓存读取失败 → 回落到本地索引
+        if (savedDate === new Date().toDateString() && savedIndex) {
+          hasDrawn.value = true
+          currentFortune.value = fortunes[parseInt(savedIndex)]
+        }
+      })
+  } else if (savedDate === new Date().toDateString() && savedIndex) {
     hasDrawn.value = true
     currentFortune.value = fortunes[parseInt(savedIndex)]
   }
+
+  loadValueReport(false)
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -305,7 +467,7 @@ onMounted(() => {
       }
     })
   })
-  
+
   const elements = document.querySelectorAll('.scroll-reveal')
   elements.forEach(el => observer.observe(el))
 })

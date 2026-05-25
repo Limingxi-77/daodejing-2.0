@@ -51,6 +51,7 @@
     <!-- 对话历史 -->
     <div
       ref="chatContainerRef"
+      data-testid="ai-chat-messages"
       class="chat-container mb-6 h-80 overflow-y-auto"
       role="log"
       aria-live="polite"
@@ -61,12 +62,13 @@
         v-for="message in messages"
         :key="message.id"
         :class="['chat-message', message.type]"
+        :data-testid="message.type === 'ai' ? 'ai-chat-message-ai' : 'ai-chat-message-user'"
       >
         <div class="chat-avatar" aria-hidden="true">
           <i :class="message.type === 'ai' ? 'fas fa-robot' : 'fas fa-user'"></i>
         </div>
         <div class="relative group min-w-0">
-          <div class="chat-content markdown-body" v-html="renderMarkdown(message.content)"></div>
+          <div data-testid="ai-chat-message-content" class="chat-content markdown-body" v-html="renderMarkdown(message.content)"></div>
 
           <!-- TTS Button (Only for AI messages) -->
           <button
@@ -107,6 +109,7 @@
       <label for="ai-chat-input" class="sr-only">输入您的问题</label>
       <input
         id="ai-chat-input"
+        data-testid="ai-chat-input"
         v-model="inputMessage"
         type="text"
         name="ai-question"
@@ -119,7 +122,25 @@
         @compositionend="isComposing = false"
       />
       <button
+        v-if="supportsVoiceInput"
         type="button"
+        data-testid="ai-chat-voice"
+        @click="toggleVoiceInput"
+        :class="[
+          'absolute right-16 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+          isListening
+            ? 'bg-red-500 text-white animate-pulse'
+            : 'bg-secondary/10 text-primary hover:bg-secondary/20'
+        ]"
+        :disabled="isLoading"
+        :aria-label="isListening ? '停止录音' : '开始语音输入'"
+        :title="isListening ? '正在听… 点击停止' : '语音输入'"
+      >
+        <i :class="isListening ? 'fas fa-stop' : 'fas fa-microphone'" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        data-testid="ai-chat-send"
         @click="sendMessage"
         class="absolute right-2 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="isLoading || !inputMessage.trim()"
@@ -128,6 +149,14 @@
         <i class="fas fa-paper-plane text-lg" aria-hidden="true"></i>
       </button>
     </div>
+    <p
+      v-if="voiceError"
+      data-testid="ai-chat-voice-error"
+      class="text-xs text-red-500 mt-2 text-center"
+      role="alert"
+    >
+      {{ voiceError }}
+    </p>
 
     <!-- 快捷问题 -->
     <div class="flex flex-wrap justify-center mt-4 gap-2" role="group" aria-label="快捷问题">
@@ -151,12 +180,14 @@ import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import { renderSafeMarkdown } from '@/utils/safeMarkdown'
+import { SpeechRecognizer, isSpeechRecognitionSupported } from '@/utils/speechRecognition'
 
 const chatStore = useChatStore()
 const authStore = useAuthStore()
 const { messages, isLoading, quickQuestions, error: storeError, lastMode } = storeToRefs(chatStore)
 const { user, isLoggedIn } = storeToRefs(authStore)
-const { sendMessage: sendStoreMessage, sendQuickQuestion: sendStoreQuickQuestion } = chatStore
+const { sendMessage: sendStoreMessage, sendStream: sendStoreStream, sendQuickQuestion: sendStoreQuickQuestion } = chatStore
+const streamEnabled = import.meta.env.VITE_AI_STREAM !== 'false'
 const { checkLimit, incrementUsage } = authStore
 
 // ============================================
@@ -166,6 +197,45 @@ const currentPlayingId = ref<string | null>(null)
 let currentUtterance: SpeechSynthesisUtterance | null = null
 
 const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window
+
+// ============================================
+// 语音输入(SpeechRecognition)
+// ============================================
+const supportsVoiceInput = isSpeechRecognitionSupported()
+const isListening = ref(false)
+const voiceError = ref('')
+let recognizer: SpeechRecognizer | null = null
+let voiceBaseText = ''
+
+const toggleVoiceInput = () => {
+  if (isListening.value) {
+    recognizer?.stop()
+    return
+  }
+  if (!supportsVoiceInput) {
+    voiceError.value = '当前浏览器不支持语音输入,请使用 Chrome 或 Edge'
+    return
+  }
+  voiceError.value = ''
+  voiceBaseText = inputMessage.value
+  recognizer = new SpeechRecognizer({
+    lang: 'zh-CN',
+    interimResults: true,
+    continuous: false,
+    onStart: () => { isListening.value = true },
+    onEnd: () => { isListening.value = false },
+    onError: msg => {
+      voiceError.value = msg
+      isListening.value = false
+    },
+    onResult: ({ transcript, isFinal }) => {
+      const merged = voiceBaseText ? `${voiceBaseText} ${transcript}` : transcript
+      inputMessage.value = merged
+      if (isFinal) voiceBaseText = merged
+    }
+  })
+  recognizer.start()
+}
 
 const stripMarkdown = (text: string): string =>
   text
@@ -350,7 +420,11 @@ const sendMessage = async () => {
 
   incrementUsage()
 
-  await sendStoreMessage(msg, selectedPersona.value)
+  if (streamEnabled) {
+    await sendStoreStream(msg, selectedPersona.value)
+  } else {
+    await sendStoreMessage(msg, selectedPersona.value)
+  }
 }
 
 const sendQuickQuestion = async (question: string) => {

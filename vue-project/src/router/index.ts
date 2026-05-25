@@ -16,7 +16,8 @@ const routeLoaders: Record<string, () => Promise<unknown>> = {
   PictureBook: () => import('@/views/PictureBookView.vue'),
   DaoBusiness: () => import('@/views/DaoBusinessView.vue'),
   DaoArt: () => import('@/views/DaoArtView.vue'),
-  TTS: () => import('@/views/TTSView.vue')
+  TTS: () => import('@/views/TTSView.vue'),
+  BusinessPlan: () => import('@/views/BusinessPlanView.vue')
 }
 
 const prefetched = new Set<string>()
@@ -51,6 +52,12 @@ const router = createRouter({
       name: 'TTS',
       component: routeLoaders.TTS,
       meta: { title: '语音合成', requiresAuth: false }
+    },
+    {
+      path: '/business-plan',
+      name: 'BusinessPlan',
+      component: routeLoaders.BusinessPlan,
+      meta: { title: '商业蓝图', requiresAuth: false }
     }
   ]
 })

@@ -12,14 +12,17 @@ import {
   useConversationService,
   type SearchFilterType as SearchFilter 
 } from '@/services/conversationService'
-import { 
+import {
   sendDirectMessage,
+  sendDirectMessageStream,
   initializeAIService,
   getServiceStatus,
   getAvailableProviders,
   setAPIKey,
-  type AIResponse 
+  type AIResponse
 } from '@/services/directAIService'
+
+const STREAM_ENABLED = (import.meta as { env?: { VITE_AI_STREAM?: string } }).env?.VITE_AI_STREAM !== 'false'
 
 export const useChatStore = defineStore('chat', () => {
   // 状态
@@ -244,6 +247,106 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /**
+   * 流式版本:与 sendMessage 同结构,但 AI 响应通过 SSE 增量到达,Vue 响应式自动渲染打字机效果
+   * 关键防御:try/finally 保证哪怕中途断流,已累积的 AI 内容也会被持久化
+   */
+  const sendStream = async (content: string, persona: string = 'scholar') => {
+    if (!content.trim()) return
+    if (!STREAM_ENABLED) {
+      return sendMessage(content, persona)
+    }
+
+    if (!currentConversation.value) {
+      await initializeConversation()
+    }
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: content.trim(),
+      type: 'user',
+      timestamp: new Date()
+    }
+    messages.value.push(userMessage)
+    await saveMessage(userMessage)
+
+    isLoading.value = true
+    error.value = null
+
+    // 立刻插入空 AI 占位,流式 delta 直接 append,Vue 响应式驱动 UI
+    const aiMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      content: '',
+      type: 'ai',
+      timestamp: new Date()
+    }
+    messages.value.push(aiMessage)
+    const aiIndex = messages.value.length - 1
+
+    const conversationHistory = messages.value.slice(0, -2).map(msg => ({
+      role: msg.type === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }))
+
+    let streamFailed = false
+    try {
+      let serviceStatus = getServiceStatus()
+      if (!serviceStatus.isConnected) {
+        await initializeAIService('deepseek')
+        serviceStatus = getServiceStatus()
+      }
+
+      await sendDirectMessageStream(content, {
+        persona,
+        conversationHistory,
+        onDelta: (delta: string) => {
+          // Vue 数组对象的字段修改是响应式的
+          messages.value[aiIndex].content += delta
+        },
+        onDone: () => {
+          lastMode.value = 'ai'
+        }
+      })
+    } catch (err) {
+      streamFailed = true
+      const msg = err instanceof Error ? err.message : 'AI 流式调用失败'
+      console.error('流式失败,降级:', err)
+      error.value = `流式失败：${msg}`
+      // 把占位 AI 消息移除,走非流式降级
+      if (messages.value[aiIndex] && messages.value[aiIndex].id === aiMessage.id) {
+        messages.value.splice(aiIndex, 1)
+      }
+      try {
+        const aiResponse: AIResponse = await sendDirectMessage(content, persona, conversationHistory)
+        lastMode.value = aiResponse.mode === 'mock-no-server-key' ? 'mock-no-server-key' : 'ai'
+        const fallbackMsg: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          content: aiResponse.content,
+          type: 'ai',
+          timestamp: new Date()
+        }
+        messages.value.push(fallbackMsg)
+        await saveMessage(fallbackMsg)
+      } catch (fallbackErr) {
+        console.error('非流式降级也失败,回退本地:', fallbackErr)
+        lastMode.value = 'local-fallback'
+        await sendMockMessage(content, persona)
+      }
+    } finally {
+      // 流式成功:把累积的 AI 消息持久化(即使中途短读,只要 aiIndex 还在就保存)
+      if (!streamFailed) {
+        const finalMsg = messages.value[aiIndex]
+        if (finalMsg && finalMsg.content) {
+          await saveMessage(finalMsg)
+        } else if (finalMsg && !finalMsg.content) {
+          // 没拿到任何 token 也是异常,清掉占位避免空消息持久化
+          messages.value.splice(aiIndex, 1)
+        }
+      }
+      isLoading.value = false
+    }
+  }
+
   const sendQuickQuestion = (question: string) => {
     sendMessage(question)
   }
@@ -319,6 +422,7 @@ export const useChatStore = defineStore('chat', () => {
     conversationsLoading,
     conversationsError,
     sendMessage,
+    sendStream,
     sendQuickQuestion,
     sendChapterQuestion,
     switchConversation,

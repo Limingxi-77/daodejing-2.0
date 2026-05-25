@@ -199,14 +199,6 @@
         </div>
       </section>
 
-      <!-- 知识图谱 -->
-      <section class="mb-12">
-        <h2 class="text-2xl font-bold text-primary mb-6">核心概念图谱</h2>
-        <div class="bg-white rounded-lg shadow-md p-1">
-          <KnowledgeGraph />
-        </div>
-      </section>
-
       <!-- 当前学习路径详情 -->
       <section v-if="currentPath" id="pathDetails" class="mb-12 scroll-mt-24">
         <h2 class="text-2xl font-bold text-primary mb-6">当前学习路径</h2>
@@ -693,12 +685,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, defineAsyncComponent, watch } from 'vue'
-// 三个重组件都按需挂载：
-// - KnowledgeGraph 依赖 d3，~63KB
-// - 两个 Modal 默认不显示
 const QuizModal = defineAsyncComponent(() => import('@/components/learning/QuizModal.vue'))
 const RandomEventModal = defineAsyncComponent(() => import('@/components/learning/RandomEventModal.vue'))
-const KnowledgeGraph = defineAsyncComponent(() => import('@/components/graph/KnowledgeGraph.vue'))
 import { useCultivationStore } from '@/stores/cultivation'
 import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'

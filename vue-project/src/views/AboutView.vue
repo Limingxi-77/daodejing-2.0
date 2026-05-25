@@ -113,6 +113,23 @@
           </div>
         </div>
       </section>
+
+      <!-- 商业蓝图入口 -->
+      <section class="mb-12 text-center" data-testid="about-business-plan-cta">
+        <div class="inline-flex items-center justify-center px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-3 tracking-wider">
+          <i class="fas fa-chart-line mr-1"></i>FOR INVESTORS &amp; PARTNERS
+        </div>
+        <h3 class="text-2xl font-bold text-primary font-serif mb-2">了解我们的商业模式</h3>
+        <p class="text-dark/70 mb-5 max-w-2xl mx-auto">
+          完整的市场分析、单元经济学、竞品对比、产品路线图 —— 一份给评委、投资人、合作方的项目蓝图。
+        </p>
+        <router-link
+          to="/business-plan"
+          class="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold hover:from-amber-600 hover:to-amber-700 transition-colors shadow-md"
+        >
+          查看商业蓝图 <i class="fas fa-arrow-right ml-2"></i>
+        </router-link>
+      </section>
     </div>
   </div>
 </template>

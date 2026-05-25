@@ -2,10 +2,10 @@
   <div class="mb-8">
     <h2 class="text-2xl font-semibold text-primary mb-4">选择章节</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <button 
-        v-for="(chapter, index) in chapters" 
+      <button
+        v-for="(chapter, index) in chapters"
         :key="index"
-        @click="sendChapterQuestion(chapter)"
+        @click="handleChapterClick(chapter)"
         class="chapter-select"
         :disabled="isLoading"
       >
@@ -16,12 +16,24 @@
 </template>
 
 <script setup lang="ts">
+import { inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useChatStore } from '@/stores/chat'
 
 const chatStore = useChatStore()
 const { chapters, isLoading } = storeToRefs(chatStore)
 const { sendChapterQuestion } = chatStore
+
+// 可选注入:AI 解读页根据当前模式分发(单人=流式;议事=回填 textarea)
+const promptPick = inject<((prompt: string) => void) | null>('aiInterpretationPromptPick', null)
+
+function handleChapterClick(chapter: string) {
+  if (promptPick) {
+    promptPick(`请帮我解读《道德经》${chapter}`)
+    return
+  }
+  sendChapterQuestion(chapter)
+}
 </script>
 
 <style scoped>

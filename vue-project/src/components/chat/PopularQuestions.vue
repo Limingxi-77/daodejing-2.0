@@ -2,15 +2,15 @@
   <div>
     <h2 class="text-2xl font-semibold text-primary mb-4">热门问题</h2>
     <div class="space-y-4">
-      <div 
-        v-for="(question, index) in popularQuestions" 
+      <div
+        v-for="(question, index) in popularQuestions"
         :key="index"
         class="bg-light p-4 rounded-lg border-l-4 border-accent"
       >
         <h3 class="font-medium text-primary mb-2">{{ question.title }}</h3>
         <p class="text-dark">{{ question.preview }}</p>
-        <button 
-          @click="sendMessage(question.title)"
+        <button
+          @click="handleQuestionClick(question.title)"
           class="mt-2 text-accent hover:underline"
           :disabled="isLoading"
         >
@@ -22,12 +22,24 @@
 </template>
 
 <script setup lang="ts">
+import { inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useChatStore } from '@/stores/chat'
 
 const chatStore = useChatStore()
 const { popularQuestions, isLoading } = storeToRefs(chatStore)
 const { sendMessage } = chatStore
+
+// 可选注入:AI 解读页根据当前模式分发(单人=直接发送;议事=回填 textarea)
+const promptPick = inject<((prompt: string) => void) | null>('aiInterpretationPromptPick', null)
+
+function handleQuestionClick(title: string) {
+  if (promptPick) {
+    promptPick(title)
+    return
+  }
+  sendMessage(title)
+}
 </script>
 
 <style scoped>
