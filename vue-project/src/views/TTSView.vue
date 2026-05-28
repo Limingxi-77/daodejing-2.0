@@ -199,9 +199,9 @@
             </div>
 
             <!-- 下载按钮 -->
-            <button 
-              @click="downloadAudio" 
-              :disabled="!audioBlob"
+            <button
+              @click="downloadAudio"
+              :disabled="!audioUrl"
               data-testid="tts-download"
               class="tts-btn-secondary"
             >
