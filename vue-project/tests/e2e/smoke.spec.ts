@@ -127,6 +127,48 @@ test('resource library filters local data', async ({ page }) => {
 test('tts page supports custom text generation smoke flow', async ({ page }) => {
   await preparePage(page)
 
+  // Mock TTS task creation API
+  await page.route('**/api/tts/tasks', async route => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, task: { id: 'mock-task-id', status: 'pending' } })
+      })
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [] })
+      })
+    }
+  })
+
+  // Mock TTS synthesize API - return a small valid audio blob
+  await page.route('**/api/tts/synthesize', async route => {
+    // Generate a minimal WAV file header (44 bytes)
+    const wavHeader = Buffer.from([
+      0x52, 0x49, 0x46, 0x46, // "RIFF"
+      0x24, 0x00, 0x00, 0x00, // file size - 8
+      0x57, 0x41, 0x56, 0x45, // "WAVE"
+      0x66, 0x6D, 0x74, 0x20, // "fmt "
+      0x10, 0x00, 0x00, 0x00, // chunk size
+      0x01, 0x00,             // PCM format
+      0x01, 0x00,             // mono
+      0x44, 0xAC, 0x00, 0x00, // 44100 Hz
+      0x88, 0x58, 0x01, 0x00, // byte rate
+      0x02, 0x00,             // block align
+      0x10, 0x00,             // bits per sample
+      0x64, 0x61, 0x74, 0x61, // "data"
+      0x00, 0x00, 0x00, 0x00  // data size (0)
+    ])
+    await route.fulfill({
+      status: 200,
+      contentType: 'audio/wav',
+      body: wavHeader
+    })
+  })
+
   await openRoute(page, '/tts', 'tts-page')
 
   await page.getByTestId('tts-mode-custom').click()
