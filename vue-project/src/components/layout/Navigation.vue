@@ -513,6 +513,7 @@ const toggleZenMode = () => {
   } else {
     document.documentElement.classList.remove('zen-mode')
   }
+  localStorage.setItem('zenMode', isZenMode.value ? '1' : '0')
 }
 
 
@@ -522,6 +523,12 @@ onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', handleKeydown)
   notifStore.startPolling()
+
+  // 恢复禅模式状态
+  if (localStorage.getItem('zenMode') === '1') {
+    isZenMode.value = true
+    document.documentElement.classList.add('zen-mode')
+  }
 
   // 空闲时预取高频主路由 chunk，避免首次点击导航时才下载产生卡顿
   // 已访问过的路由会命中模块缓存，prefetchRoute 内部也有去重
