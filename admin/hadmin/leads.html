@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>销售线索 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>销售线索</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="filterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="filterStatus" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="new">新线索</option>
+                                    <option value="contacted">已联系</option>
+                                    <option value="qualified">已确认</option>
+                                    <option value="closed">已关闭</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> 查询</button>
+                            <button type="button" id="resetBtn" class="btn btn-default">重置</button>
+                        </form>
+
+                        <div id="leadsError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>姓名</th>
+                                        <th>邮箱</th>
+                                        <th>公司</th>
+                                        <th>电话</th>
+                                        <th>意向</th>
+                                        <th>状态</th>
+                                        <th>提交时间</th>
+                                        <th style="width: 200px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leadsBody">
+                                    <tr><td colspan="9" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = {
+            page: 1,
+            pageSize: 20,
+            status: ''
+        };
+
+        function statusLabel(status) {
+            if (status === 'new') return '<span class="label label-info">新线索</span>';
+            if (status === 'contacted') return '<span class="label label-primary">已联系</span>';
+            if (status === 'qualified') return '<span class="label label-success">已确认</span>';
+            if (status === 'closed') return '<span class="label label-default">已关闭</span>';
+            return '<span class="label label-warning">' + AdminAPI.escapeHtml(status || '未知') + '</span>';
+        }
+
+        function renderActions(lead) {
+            if (lead.status === 'closed') {
+                return '<span class="text-muted">已关闭</span>';
+            }
+            var btns = '';
+            if (lead.status === 'new') {
+                btns += '<button class="btn btn-xs btn-primary btn-status" data-status="contacted"><i class="fa fa-phone"></i> 已联系</button> ';
+            }
+            if (lead.status !== 'qualified') {
+                btns += '<button class="btn btn-xs btn-success btn-status" data-status="qualified"><i class="fa fa-check"></i> 确认</button> ';
+            }
+            btns += '<button class="btn btn-xs btn-default btn-status" data-status="closed"><i class="fa fa-ban"></i> 关闭</button>';
+            return btns;
+        }
+
+        function renderRow(lead) {
+            return '<tr data-id="' + AdminAPI.escapeHtml(String(lead.id)) + '">' +
+                '<td>' + AdminAPI.escapeHtml(String(lead.id)) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(lead.name || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(lead.email || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(lead.company || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(lead.phone || '-') + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(lead.intent || '-') + '</td>' +
+                '<td>' + statusLabel(lead.status) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(AdminAPI.formatDate(lead.created_at)) + '</td>' +
+                '<td>' + renderActions(lead) + '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var query = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                status: state.status
+            });
+            AdminAPI.apiFetch('/api/admin/leads?' + query)
+                .then(function (result) {
+                    var rows = result.leads || [];
+                    var body = document.getElementById('leadsBody');
+                    if (rows.length === 0) {
+                        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无线索</td></tr>';
+                    } else {
+                        body.innerHTML = rows.map(renderRow).join('');
+                    }
+                    AdminAPI.renderPagination('#pagination', {
+                        page: result.page,
+                        pageSize: result.pageSize,
+                        total: result.total
+                    }, function (p) {
+                        state.page = p;
+                        load();
+                    });
+                    AdminAPI.showError('#leadsError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#leadsError', '加载销售线索失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function updateStatus(id, status) {
+            AdminAPI.apiFetch('/api/admin/leads/' + encodeURIComponent(id), {
+                method: 'PATCH',
+                body: { status: status }
+            }).then(function () {
+                AdminAPI.notify('状态已更新', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('更新失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        document.getElementById('filterForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            state.status = document.getElementById('filterStatus').value;
+            state.page = 1;
+            load();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', function () {
+            document.getElementById('filterStatus').value = '';
+            state.status = '';
+            state.page = 1;
+            load();
+        });
+
+        jQuery('#leadsBody').on('click', '.btn-status', function () {
+            var tr = jQuery(this).closest('tr');
+            var id = tr.data('id');
+            var status = jQuery(this).data('status');
+            updateStatus(id, status);
+        });
+
+        load();
+    })();
+    </script>
+</body>
+
+</html>

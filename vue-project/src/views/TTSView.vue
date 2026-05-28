@@ -3,7 +3,7 @@
     <!-- 头部 -->
     <header class="tts-header">
       <h1>道德经语音合成器</h1>
-      <p class="subtitle">DeepSeek × CosyVoice 智能语音合成</p>
+      <p class="subtitle">DeepSeek × MiMo 智能语音合成</p>
     </header>
 
     <!-- 主容器 -->
@@ -261,6 +261,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTTS } from '@/composables/useTTS'
 import { DeepSeekService, defaultDeepSeekConfig } from '@/services/deepseekService'
+import { cosyvoiceService } from '@/services/cosyvoiceService'
 import { createTtsTask, fetchTtsTasks, type TtsTask } from '@/services/ttsTaskService'
 
 // 模式选项
@@ -292,7 +293,7 @@ const toastMessage = ref('')
 
 // 语音配置
 const voiceConfig = ref({
-  voice: 'longxiaochun',
+  voice: 'mimo_default',
   speed: 1.0,
   emotion: 'neutral',
   volume: 80
@@ -323,7 +324,7 @@ const audioStatus = ref('waiting')
 const visualizerCanvas = ref<HTMLCanvasElement | null>(null)
 
 // 历史记录
-const history = ref<Array<{title: string, time: string, blob: Blob}>>([])
+const history = ref<Array<{title: string, time: string, url?: string, blob?: Blob}>>([])
 
 const loadTtsTasks = async () => {
   try {
@@ -331,7 +332,9 @@ const loadTtsTasks = async () => {
     const taskHistory = response.data.map((task: TtsTask) => ({
       title: `${task.status === 'completed' ? '已完成' : '任务'}：${task.text.slice(0, 18)}${task.text.length > 18 ? '...' : ''}`,
       time: new Date(task.createdAt).toLocaleString(),
-      blob: new Blob([task.audioUrl || task.text], { type: 'text/plain' })
+      ...(task.audioUrl
+        ? { url: task.audioUrl }
+        : { blob: new Blob([task.text], { type: 'text/plain' }) })
     }))
     history.value = [...taskHistory, ...history.value].slice(0, 20)
   } catch (error) {
@@ -369,43 +372,58 @@ const generateSpeech = async () => {
 
   isGenerating.value = true
   audioStatus.value = 'generating'
-  loadingText.value = '正在加载语音...'
+  loadingText.value = '正在调用 MiMo 合成语音...'
 
   try {
-    createTtsTask({
-      text: displayText.value,
-      voice: voiceConfig.value.voice,
-      speed: Number(voiceConfig.value.speed),
-      volume: Number(voiceConfig.value.volume) / 100
-    }).catch(error => {
+    // 创建任务并获取 taskId
+    let taskId: string | undefined
+    try {
+      const taskRes = await createTtsTask({
+        text: displayText.value,
+        voice: voiceConfig.value.voice,
+        speed: Number(voiceConfig.value.speed),
+        volume: Number(voiceConfig.value.volume) / 100
+      })
+      taskId = taskRes.task?.id
+    } catch (error) {
       console.warn('TTS 任务创建失败，将仅执行即时播放:', error)
-    })
-
-    // 加载预生成的语音文件 video.mp3
-    const response = await fetch('/video.mp3')
-    if (!response.ok) {
-      throw new Error('语音文件加载失败')
     }
 
-    const blob = await response.blob()
-    audioBlob.value = blob
-    audioUrl.value = URL.createObjectURL(blob)
+    const result = await cosyvoiceService.textToSpeech(displayText.value, {
+      voice: voiceConfig.value.voice,
+      speed: voiceConfig.value.speed,
+      emotion: voiceConfig.value.emotion,
+      volume: voiceConfig.value.volume / 100,
+      taskId
+    })
+
+    // result 是音频 URL 字符串
+    const url = typeof result === 'string' ? result : URL.createObjectURL(result)
+
+    // 停止旧音频
+    stopPlay()
+
+    audioUrl.value = url
+    audioBlob.value = null
     audioStatus.value = 'ready'
 
     // 添加到历史
+    const title = displayText.value.slice(0, 20) + (displayText.value.length > 20 ? '...' : '')
     history.value.unshift({
-      title: `道德经解读语音 ${new Date().toLocaleString()}`,
+      title,
       time: new Date().toLocaleString(),
-      blob: blob
+      url
     })
 
-    showToast('语音加载成功！开始播放...')
-
-    // 自动播放音频
+    showToast('语音合成完成！开始播放...')
     await playAudio()
-  } catch (error) {
-    console.error('加载失败:', error)
-    showToast('语音加载失败，请检查文件是否存在')
+  } catch (error: any) {
+    console.error('语音合成失败:', error)
+    if (error?.message === 'BROWSER_FALLBACK_REQUESTED') {
+      showToast('后端未配置 API Key，请在后台管理中配置 MiMo API Key')
+    } else {
+      showToast('语音合成失败：' + (error?.message || '未知错误'))
+    }
   } finally {
     isGenerating.value = false
   }
@@ -416,9 +434,16 @@ const playAudio = async () => {
   if (!audioUrl.value) return
 
   try {
-    const audio = new Audio(audioUrl.value)
+    // 停止旧音频
+    const oldAudio = (window as any).currentAudio
+    if (oldAudio) {
+      oldAudio.pause()
+      oldAudio.src = ''
+    }
 
-    // 监听音频事件
+    const audio = new Audio(audioUrl.value)
+    ;(window as any).currentAudio = audio
+
     audio.addEventListener('loadedmetadata', () => {
       duration.value = audio.duration
     })
@@ -443,14 +468,8 @@ const playAudio = async () => {
       audioStatus.value = 'ready'
     })
 
-    // 设置音量
     audio.volume = voiceConfig.value.volume / 100
-
-    // 开始播放
     await audio.play()
-
-    // 保存音频实例以便控制
-    ;(window as any).currentAudio = audio
   } catch (error) {
     console.error('播放失败:', error)
     showToast('音频播放失败')
@@ -496,14 +515,12 @@ const seekAudio = () => {
 }
 
 const downloadAudio = () => {
-  if (!audioBlob.value) return
-  
-  const url = URL.createObjectURL(audioBlob.value)
+  if (!audioUrl.value) return
+
   const a = document.createElement('a')
-  a.href = url
+  a.href = audioUrl.value
   a.download = `道德经语音_${new Date().getTime()}.mp3`
   a.click()
-  URL.revokeObjectURL(url)
 }
 
 const editText = () => {
@@ -521,18 +538,17 @@ const clearHistory = () => {
 }
 
 const playHistory = (item: any) => {
-  const url = URL.createObjectURL(item.blob)
+  const url = item.url || URL.createObjectURL(item.blob)
   const audio = new Audio(url)
   audio.play()
 }
 
 const downloadHistory = (item: any) => {
-  const url = URL.createObjectURL(item.blob)
+  const url = item.url || URL.createObjectURL(item.blob)
   const a = document.createElement('a')
   a.href = url
   a.download = `道德经语音_${new Date().getTime()}.mp3`
   a.click()
-  URL.revokeObjectURL(url)
 }
 
 const showToast = (message: string) => {
@@ -633,7 +649,7 @@ onMounted(() => {
 
 /* 头部样式 */
 .tts-header {
-  background: linear-gradient(135deg, #2c5f2d 0%, #4a7c4b 100%);
+  background: linear-gradient(135deg, #6B4826 0%, #A67C52 100%);
   color: white;
   padding: 2rem;
   text-align: center;
@@ -677,10 +693,10 @@ onMounted(() => {
 
 .tts-panel-section h3 {
   font-size: 1rem;
-  color: #2c5f2d;
+  color: #6B4826;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #97bc62;
+  border-bottom: 2px solid #D4AF37;
 }
 
 /* 模式标签 */
@@ -703,13 +719,13 @@ onMounted(() => {
 }
 
 .tts-mode-btn:hover {
-  border-color: #4a7c4b;
-  color: #2c5f2d;
+  border-color: #A67C52;
+  color: #6B4826;
 }
 
 .tts-mode-btn.active {
-  background: #2c5f2d;
-  border-color: #2c5f2d;
+  background: #6B4826;
+  border-color: #6B4826;
   color: white;
 }
 
@@ -728,7 +744,7 @@ onMounted(() => {
 
 .tts-select-box:focus {
   outline: none;
-  border-color: #2c5f2d;
+  border-color: #6B4826;
 }
 
 .tts-text-input {
@@ -745,7 +761,7 @@ onMounted(() => {
 
 .tts-text-input:focus {
   outline: none;
-  border-color: #2c5f2d;
+  border-color: #6B4826;
 }
 
 .tts-char-count {
@@ -781,7 +797,7 @@ onMounted(() => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #2c5f2d;
+  background: #6B4826;
   cursor: pointer;
 }
 
@@ -809,23 +825,23 @@ onMounted(() => {
 }
 
 .tts-btn-primary {
-  background: #2c5f2d;
+  background: #6B4826;
   color: white;
 }
 
 .tts-btn-primary:hover:not(:disabled) {
-  background: #4a7c4b;
+  background: #A67C52;
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .tts-btn-secondary {
-  background: #97bc62;
-  color: #1a3a1b;
+  background: #D4AF37;
+  color: #333;
 }
 
 .tts-btn-secondary:hover:not(:disabled) {
-  background: #85a854;
+  background: #C29D2E;
 }
 
 .tts-btn-danger {
@@ -859,7 +875,7 @@ onMounted(() => {
 .tts-btn-text {
   background: none;
   border: none;
-  color: #2c5f2d;
+  color: #6B4826;
   cursor: pointer;
   font-size: 0.85rem;
   text-decoration: underline;
@@ -890,13 +906,13 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  background: linear-gradient(to right, #f8f9f5, #ffffff);
+  background: linear-gradient(to right, #FDFBF7, #ffffff);
   border-bottom: 1px solid #e0e0d5;
 }
 
 .tts-card-header h3 {
   font-size: 1.1rem;
-  color: #2c5f2d;
+  color: #6B4826;
 }
 
 .tts-header-actions {
@@ -923,13 +939,13 @@ button:disabled {
 
 .tts-content-textarea:focus {
   outline: none;
-  border-color: #4a7c4b;
+  border-color: #A67C52;
 }
 
 /* 音频播放器 */
 .tts-audio-visualizer {
   height: 120px;
-  background: linear-gradient(to bottom, #f0f4ec, #e8ede3);
+  background: linear-gradient(to bottom, #F9F5EB, #F0EBE0);
   border-radius: 8px;
   margin-bottom: 1.5rem;
   display: flex;
@@ -955,7 +971,7 @@ button:disabled {
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: #2c5f2d;
+  background: #6B4826;
   color: white;
   cursor: pointer;
   display: flex;
@@ -965,7 +981,7 @@ button:disabled {
 }
 
 .tts-control-btn:hover:not(:disabled) {
-  background: #4a7c4b;
+  background: #A67C52;
   transform: scale(1.05);
 }
 
@@ -992,7 +1008,7 @@ button:disabled {
 
 .tts-progress-fill {
   height: 100%;
-  background: #2c5f2d;
+  background: #6B4826;
   border-radius: 3px;
   transition: width 0.1s linear;
 }
@@ -1047,7 +1063,7 @@ button:disabled {
 }
 
 .tts-history-item:hover {
-  background: #f8f9f5;
+  background: #FDFBF7;
 }
 
 .tts-history-item:last-child {
@@ -1115,7 +1131,7 @@ button:disabled {
   width: 50px;
   height: 50px;
   border: 4px solid #e0e0d5;
-  border-top-color: #2c5f2d;
+  border-top-color: #6B4826;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1.5rem;
@@ -1138,7 +1154,7 @@ button:disabled {
 
 .tts-progress-bar-fill {
   height: 100%;
-  background: #2c5f2d;
+  background: #D4AF37;
   transition: width 0.3s ease;
 }
 
@@ -1148,7 +1164,7 @@ button:disabled {
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #1a3a1b;
+  background: #333;
   color: white;
   padding: 1rem 2rem;
   border-radius: 8px;

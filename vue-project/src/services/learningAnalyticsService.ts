@@ -1,4 +1,5 @@
 // 学习分析服务 - 统计和分析学习数据
+import { apiClient } from '@/services/api'
 
 // 学习统计数据
 export interface LearningStats {
@@ -82,6 +83,12 @@ export class LearningAnalyticsService {
 
     // 更新学习统计
     this.updateStats(userId, record)
+
+    // 同步到后端（fire-and-forget）
+    apiClient('/learning/records', {
+      method: 'POST',
+      body: { lessonId, startTime: record.startTime, endTime: record.endTime, duration, notesTaken, quizCompleted: record.quizCompleted, quizScore }
+    }).catch(() => {})
   }
 
   // 更新学习统计
@@ -127,6 +134,21 @@ export class LearningAnalyticsService {
 
     // 保存更新后的统计
     localStorage.setItem(`learning_stats_${userId}`, JSON.stringify(stats))
+
+    // 同步到后端（fire-and-forget）
+    apiClient('/learning/stats', {
+      method: 'PUT',
+      body: {
+        totalStudyTime: stats.totalStudyTime,
+        completedLessons: stats.completedLessons,
+        totalQuizzes: stats.totalQuizzes,
+        averageQuizScore: stats.averageQuizScore,
+        currentStreak: stats.currentStreak,
+        longestStreak: stats.longestStreak,
+        lastStudyDate: stats.lastStudyDate,
+        favoriteChapter: stats.favoriteChapter
+      }
+    }).catch(() => {})
   }
 
   // 计算平均分数
@@ -206,6 +228,15 @@ export class LearningAnalyticsService {
     stats.learningGoals.push(goal)
     localStorage.setItem(`learning_stats_${userId}`, JSON.stringify(stats))
 
+    // 同步到后端（fire-and-forget）
+    apiClient<{ goal?: { id: string } }>('/learning/goals', {
+      method: 'POST',
+      body: { title, targetDate, progress: 0, completed: false }
+    }).then(res => {
+      // 用后端返回的 id 更新本地记录
+      if (res.goal?.id) goal.id = res.goal.id
+    }).catch(() => {})
+
     return goal
   }
 
@@ -213,11 +244,17 @@ export class LearningAnalyticsService {
   static updateGoalProgress(userId: string, goalId: string, progress: number): void {
     const stats = this.getUserStats(userId)
     const goal = stats.learningGoals.find(g => g.id === goalId)
-    
+
     if (goal) {
       goal.progress = Math.min(100, Math.max(0, progress))
       goal.completed = goal.progress >= 100
       localStorage.setItem(`learning_stats_${userId}`, JSON.stringify(stats))
+
+      // 同步到后端（fire-and-forget）
+      apiClient(`/learning/goals/${goalId}`, {
+        method: 'PATCH',
+        body: { progress: goal.progress, completed: goal.completed }
+      }).catch(() => {})
     }
   }
 
@@ -226,6 +263,11 @@ export class LearningAnalyticsService {
     const stats = this.getUserStats(userId)
     stats.learningGoals = stats.learningGoals.filter(g => g.id !== goalId)
     localStorage.setItem(`learning_stats_${userId}`, JSON.stringify(stats))
+
+    // 同步到后端（fire-and-forget）
+    apiClient(`/learning/goals/${goalId}`, {
+      method: 'DELETE'
+    }).catch(() => {})
   }
 
   // 生成学习报告

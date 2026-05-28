@@ -80,13 +80,23 @@
           </span>
         </router-link>
 
-        <!-- 会员付费 -->
+        <!-- 会员状态 / 付费入口 -->
         <button
-          @click="showPricingModal = true"
-          class="flex items-center px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-semibold hover:from-amber-500 hover:to-orange-600 transition-all shadow-sm hover:shadow-md"
-          title="升级会员"
+          type="button"
+          @click="openPricingModal"
+          :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all shadow-sm hover:shadow-md border', membershipStatus.buttonClass]"
+          :title="membershipStatus.title"
+          :aria-label="membershipStatus.title"
+          data-testid="membership-status-button"
+          :data-membership-state="membershipStatus.state"
         >
-          <i class="fas fa-crown mr-1"></i>会员
+          <span :class="['w-5 h-5 rounded-full flex items-center justify-center text-xs', membershipStatus.iconClass]">
+            <i :class="membershipStatus.icon"></i>
+          </span>
+          <span>{{ membershipStatus.label }}</span>
+          <span v-if="membershipStatus.state === 'level' && remainingDaysText" class="hidden xl:inline text-xs font-medium opacity-80">
+            {{ remainingDaysText }}
+          </span>
         </button>
 
         <div v-if="!isLoggedIn" class="flex space-x-4">
@@ -96,15 +106,65 @@
 
         <!-- 用户信息（登录后显示） -->
         <div v-else class="flex items-center space-x-4">
-          <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">
-              <i class="fas fa-user"></i>
-            </div>
-            <span class="text-primary font-semibold">{{ user?.display_name || '用户' }}</span>
-            <span :class="['text-xs px-2 py-0.5 rounded-full font-bold', tierBadgeClass]" :title="expiryTooltip">
-              {{ tierLabel }}
-            </span>
-            <span v-if="tierLabel !== '布衣' && remainingDaysText" class="text-xs text-gray-500 ml-1">{{ remainingDaysText }}</span>
+          <div ref="xpPopoverRef" class="relative flex items-center space-x-2">
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
+              :aria-expanded="isXpPopoverOpen"
+              aria-controls="user-xp-popover"
+              title="查看经验值"
+              data-testid="user-avatar-xp-trigger"
+              @click="toggleXpPopover"
+            >
+              <img v-if="user?.avatar_url" :src="user.avatar_url" alt="" class="w-full h-full rounded-full object-cover">
+              <i v-else class="fas fa-user"></i>
+            </button>
+            <router-link
+              :to="{ name: 'Profile' }"
+              class="text-primary font-semibold hover:text-accent transition-colors"
+              data-testid="profile-nav-link"
+            >
+              {{ user?.display_name || '用户' }}
+            </router-link>
+            <transition name="fade">
+              <div
+                v-if="isXpPopoverOpen"
+                id="user-xp-popover"
+                class="absolute right-0 top-full mt-3 w-72 rounded-lg border border-primary/15 bg-white p-4 text-primary shadow-xl z-50"
+                data-testid="user-xp-popover"
+              >
+                <div class="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p class="text-xs text-gray-500">当前经验</p>
+                    <p class="text-2xl font-bold leading-tight">{{ formattedExp }} XP</p>
+                  </div>
+                  <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+                    <i :class="currentRealm.icon"></i>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-sm mb-2">
+                  <span class="font-semibold">{{ currentRealm.name }}</span>
+                  <span class="text-gray-500">{{ nextRealm ? nextRealm.name : '最高境界' }}</span>
+                </div>
+                <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                  <div class="h-full bg-accent transition-all duration-500" :style="{ width: progress + '%' }"></div>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">
+                  <span v-if="nextRealm">还差 {{ formattedRemainingExp }} XP</span>
+                  <span v-else>已达最高境界</span>
+                </p>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                  <div class="rounded-md bg-primary/5 px-3 py-2">
+                    <span class="font-bold text-primary">每日一签 +50 XP</span>
+                  </div>
+                  <div class="rounded-md bg-accent/10 px-3 py-2">
+                    <span class="font-bold text-primary">再抽 -30 XP</span>
+                  </div>
+                </div>
+              </div>
+            </transition>
           </div>
           <button @click="logout" class="text-sm text-secondary hover:text-red-500 transition-colors flex items-center">
             <i class="fas fa-sign-out-alt mr-1"></i>退出
@@ -187,17 +247,77 @@
             <i class="fas fa-envelope mr-2"></i>收件箱
             <span v-if="notifStore.unreadCount > 0" class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold">{{ notifStore.unreadCount }}</span>
           </router-link>
-          <div class="flex items-center space-x-3 px-2">
-            <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
-              <i class="fas fa-user text-lg"></i>
-            </div>
-            <div class="flex flex-col">
-              <span class="text-primary font-semibold">{{ user?.display_name || '用户' }}</span>
-              <div class="flex items-center space-x-2 mt-0.5">
-                <span :class="['text-xs px-2 py-0.5 rounded-full font-bold', tierBadgeClass]" :title="expiryTooltip">{{ tierLabel }}</span>
-                <span v-if="tierLabel !== '布衣' && remainingDaysText" class="text-xs text-gray-500">{{ remainingDaysText }}</span>
+          <button
+            type="button"
+            @click="openPricingFromMobile"
+            :class="['w-full px-2 py-2 rounded-lg flex items-center text-left transition-colors border', membershipStatus.mobileButtonClass]"
+            :title="membershipStatus.title"
+            :aria-label="membershipStatus.title"
+            data-testid="mobile-membership-status-button"
+            :data-membership-state="membershipStatus.state"
+          >
+            <span :class="['w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm', membershipStatus.iconClass]">
+              <i :class="membershipStatus.icon"></i>
+            </span>
+            <span class="font-semibold">{{ membershipStatus.mobileLabel }}</span>
+            <span v-if="membershipStatus.state === 'level' && remainingDaysText" class="ml-2 text-xs opacity-75">{{ remainingDaysText }}</span>
+            <i class="fas fa-chevron-right ml-auto text-xs opacity-50"></i>
+          </button>
+          <div class="px-2">
+            <button
+              type="button"
+              class="w-full flex items-center space-x-3 text-left"
+              :aria-expanded="isMobileXpPanelOpen"
+              aria-controls="mobile-user-xp-panel"
+              data-testid="mobile-user-avatar-xp-trigger"
+              @click="toggleMobileXpPanel"
+            >
+              <div class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+                <img v-if="user?.avatar_url" :src="user.avatar_url" alt="" class="w-full h-full rounded-full object-cover">
+                <i v-else class="fas fa-user text-lg"></i>
+              </div>
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="text-primary font-semibold truncate">{{ user?.display_name || '用户' }}</span>
+                <span class="text-xs text-gray-500 mt-0.5">{{ membershipStatus.mobileLabel }}</span>
+              </div>
+              <i :class="isMobileXpPanelOpen ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="text-xs text-gray-400"></i>
+            </button>
+
+            <div
+              v-if="isMobileXpPanelOpen"
+              id="mobile-user-xp-panel"
+              class="mt-3 rounded-lg border border-primary/10 bg-primary/5 p-3 text-primary"
+              data-testid="mobile-user-xp-panel"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <p class="text-xs text-gray-500">当前经验</p>
+                  <p class="text-xl font-bold">{{ formattedExp }} XP</p>
+                </div>
+                <div class="text-right text-sm">
+                  <p class="font-semibold">{{ currentRealm.name }}</p>
+                  <p class="text-xs text-gray-500">
+                    <span v-if="nextRealm">还差 {{ formattedRemainingExp }} XP</span>
+                    <span v-else>已达最高境界</span>
+                  </p>
+                </div>
+              </div>
+              <div class="w-full h-2 bg-white rounded-full overflow-hidden mb-2">
+                <div class="h-full bg-accent" :style="{ width: progress + '%' }"></div>
+              </div>
+              <div class="flex justify-between text-xs text-gray-500">
+                <span>每日一签 +50 XP</span>
+                <span>再抽 -30 XP</span>
               </div>
             </div>
+            <router-link
+              :to="{ name: 'Profile' }"
+              class="mt-3 inline-flex items-center text-sm font-semibold text-primary hover:text-accent transition-colors"
+              data-testid="mobile-profile-nav-link"
+              @click="isMobileMenuOpen = false"
+            >
+              <i class="fas fa-id-card mr-2"></i>进入个人中心
+            </router-link>
           </div>
           <button @click="logout" class="w-full text-left px-2 py-2 text-secondary hover:text-red-500 transition-colors flex items-center">
             <i class="fas fa-sign-out-alt mr-2"></i>退出登录
@@ -221,28 +341,15 @@ const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
 const isZenMode = ref(false)
 const isRetroMode = ref(false)
+const isXpPopoverOpen = ref(false)
+const isMobileXpPanelOpen = ref(false)
+const xpPopoverRef = ref<HTMLElement | null>(null)
 
 const authStore = useAuthStore()
 const { isLoggedIn, user, showPricingModal } = storeToRefs(authStore)
 const { logout } = authStore
 
 const notifStore = useNotificationStore()
-
-const tierLabel = computed(() => {
-  const tier = user.value?.subscription?.tier || 'free'
-  const map: Record<string, string> = { free: '布衣', pro: '居士', master: '宗师' }
-  return map[tier] || tier
-})
-
-const tierBadgeClass = computed(() => {
-  const tier = user.value?.subscription?.tier || 'free'
-  const map: Record<string, string> = {
-    free: 'bg-gray-200 text-gray-600',
-    pro: 'bg-primary/10 text-primary',
-    master: 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white'
-  }
-  return map[tier] || 'bg-gray-200 text-gray-600'
-})
 
 const expiryDate = computed(() => {
   const expiry = user.value?.subscription?.expiryDate
@@ -272,8 +379,87 @@ const expiryTooltip = computed(() => {
   return '到期时间: ' + expiryDate.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 })
 
+const currentTier = computed(() => user.value?.subscription?.tier || 'free')
+
+const tierMeta = computed(() => {
+  const map: Record<string, { label: string; icon: string; buttonClass: string; mobileButtonClass: string; iconClass: string }> = {
+    free: {
+      label: '会员',
+      icon: 'fas fa-crown',
+      buttonClass: 'border-transparent bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600',
+      mobileButtonClass: 'border-transparent bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600',
+      iconClass: 'bg-white/20 text-white'
+    },
+    pro: {
+      label: '居士',
+      icon: 'fas fa-seedling',
+      buttonClass: 'border-primary/20 bg-primary/10 text-primary hover:bg-primary/15',
+      mobileButtonClass: 'border-primary/15 bg-primary/5 text-primary hover:bg-primary/10',
+      iconClass: 'bg-primary text-white'
+    },
+    master: {
+      label: '宗师',
+      icon: 'fas fa-gem',
+      buttonClass: 'border-amber-300 bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:from-yellow-500 hover:to-orange-600',
+      mobileButtonClass: 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100',
+      iconClass: 'bg-amber-500 text-white'
+    },
+    team: {
+      label: '团队',
+      icon: 'fas fa-users',
+      buttonClass: 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100',
+      mobileButtonClass: 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100',
+      iconClass: 'bg-blue-600 text-white'
+    }
+  }
+
+  return map[currentTier.value] || {
+    label: currentTier.value,
+    icon: 'fas fa-certificate',
+    buttonClass: 'border-primary/20 bg-primary/10 text-primary hover:bg-primary/15',
+    mobileButtonClass: 'border-primary/15 bg-primary/5 text-primary hover:bg-primary/10',
+    iconClass: 'bg-primary text-white'
+  }
+})
+
+const hasMembershipLevel = computed(() => isLoggedIn.value && currentTier.value !== 'free')
+
+const membershipStatus = computed(() => {
+  if (!hasMembershipLevel.value) {
+    return {
+      state: 'upgrade',
+      label: '会员',
+      mobileLabel: '开通会员',
+      icon: 'fas fa-crown',
+      buttonClass: 'border-transparent bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600',
+      mobileButtonClass: 'border-transparent bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600',
+      iconClass: 'bg-white/20 text-white',
+      title: '升级会员'
+    }
+  }
+
+  return {
+    state: 'level',
+    label: tierMeta.value.label,
+    mobileLabel: `${tierMeta.value.label}会员`,
+    icon: tierMeta.value.icon,
+    buttonClass: tierMeta.value.buttonClass,
+    mobileButtonClass: tierMeta.value.mobileButtonClass,
+    iconClass: tierMeta.value.iconClass,
+    title: `${tierMeta.value.label}会员，${expiryTooltip.value}`
+  }
+})
+
 const cultivationStore = useCultivationStore()
-const { currentRealm, progress } = storeToRefs(cultivationStore)
+const { exp, currentRealm, nextRealm, progress } = storeToRefs(cultivationStore)
+
+const numberFormatter = new Intl.NumberFormat('zh-CN')
+const formattedExp = computed(() => numberFormatter.format(exp.value))
+const remainingExp = computed(() => {
+  if (!nextRealm.value) return 0
+  return Math.max(nextRealm.value.minExp - exp.value, 0)
+})
+const formattedRemainingExp = computed(() => numberFormatter.format(remainingExp.value))
 
 
 const routes = [
@@ -304,6 +490,41 @@ const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
 }
 
+const openPricingModal = () => {
+  showPricingModal.value = true
+}
+
+const openPricingFromMobile = () => {
+  openPricingModal()
+  closeMobileMenu()
+}
+
+const toggleXpPopover = () => {
+  isXpPopoverOpen.value = !isXpPopoverOpen.value
+}
+
+const toggleMobileXpPanel = () => {
+  isMobileXpPanelOpen.value = !isMobileXpPanelOpen.value
+}
+
+const closeXpPopover = () => {
+  isXpPopoverOpen.value = false
+}
+
+const handleDocumentClick = (event: MouseEvent) => {
+  if (!isXpPopoverOpen.value) return
+  const target = event.target as Node | null
+  if (target && xpPopoverRef.value?.contains(target)) return
+  closeXpPopover()
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    closeXpPopover()
+    isMobileXpPanelOpen.value = false
+  }
+}
+
 const toggleZenMode = () => {
   isZenMode.value = !isZenMode.value
   if (isZenMode.value) {
@@ -324,6 +545,8 @@ const toggleRetroMode = () => {
 
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleKeydown)
   notifStore.startPolling()
 
   // 空闲时预取高频主路由 chunk，避免首次点击导航时才下载产生卡顿
@@ -342,6 +565,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleKeydown)
   notifStore.stopPolling()
 })
 </script>

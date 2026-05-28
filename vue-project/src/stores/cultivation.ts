@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { apiClient } from '@/services/api'
 
 // 境界定义
 export interface Realm {
@@ -79,17 +80,40 @@ export const useCultivationStore = defineStore('cultivation', () => {
     showUpgradeModal.value = false
   }
 
-  // 初始化：从本地存储加载
-  const init = () => {
+  // 初始化：优先从 API 加载，回退到本地存储
+  const init = async () => {
+    try {
+      const res = await apiClient<{ success: boolean; data: { exp: number; realm: string } }>('/cultivation')
+      if (res.success && res.data) {
+        exp.value = res.data.exp || 0
+        localStorage.setItem('cultivation_exp', exp.value.toString())
+        return
+      }
+    } catch {
+      // 未登录或网络异常，回退到本地存储
+    }
     const savedExp = localStorage.getItem('cultivation_exp')
     if (savedExp) {
       exp.value = parseInt(savedExp, 10)
     }
   }
 
-  // 监听：保存到本地存储
+  // 防抖同步到后端
+  let syncTimeout: ReturnType<typeof setTimeout> | null = null
+  const debouncedSync = (val: number) => {
+    if (syncTimeout) clearTimeout(syncTimeout)
+    syncTimeout = setTimeout(() => {
+      apiClient('/cultivation', {
+        method: 'PUT',
+        body: { exp: val, realm: currentRealm.value.name }
+      }).catch(() => {})
+    }, 2000)
+  }
+
+  // 监听：保存到本地存储 + 防抖同步到后端
   watch(exp, (val) => {
     localStorage.setItem('cultivation_exp', val.toString())
+    debouncedSync(val)
   })
 
   // 立即初始化

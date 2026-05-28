@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const path = require('path')
 const fs = require('fs/promises')
+const fsSync = require('fs')
 const { randomUUID, timingSafeEqual } = require('crypto')
 const {
   alertLevels,
@@ -50,7 +51,32 @@ const {
   validateLeadInput,
   normalizeLeadInput
 } = require('./lib/leads-utils')
-require('dotenv').config()
+const {
+  validateStyle,
+  buildArtPrompt,
+  buildNegativePrompt,
+  getArtSize
+} = require('./lib/art-utils')
+const {
+  parseAvatarDataUrl
+} = require('./lib/avatar-utils')
+const {
+  ensureTableColumns
+} = require('./lib/schema-utils')
+const {
+  buildAdminUserOrderBy
+} = require('./lib/admin-user-sort-utils')
+const {
+  getSubscriptionPlan,
+  calculateSubscriptionExpiry,
+  normalizeSubscriptionOrderStatus,
+  formatSubscriptionOrder,
+  buildSubscriptionOrderNo
+} = require('./lib/subscription-order-utils')
+const {
+  AVATAR_USER_COLUMNS
+} = require('./scripts/ensure-avatar-columns')
+require('dotenv').config({ path: path.join(__dirname, '.env') })
 
 const SERVICE_STARTED_AT = new Date()
 const SECURITY_CONFIG = {
@@ -92,7 +118,7 @@ const RUNTIME_LOG_SOURCES = Object.freeze({
 app.disable('x-powered-by')
 app.use(requestContextMiddleware)
 app.use(cors({ origin: process.env.CORS_ORIGIN || true }))
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({ limit: '4mb' }))
 app.get('/hadmin', (_req, res) => {
   res.redirect('/hadmin/login.html')
 })
@@ -100,6 +126,7 @@ app.get('/hadmin/', (_req, res) => {
   res.redirect('/hadmin/login.html')
 })
 app.use('/hadmin', express.static(hAdminStaticDir))
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 app.use('/api/', createRateLimiter({
   name: 'api',
   windowMs: SECURITY_CONFIG.rateLimitWindowMs,
@@ -114,6 +141,11 @@ app.use('/api/tts/', createRateLimiter({
   name: 'tts',
   windowMs: SECURITY_CONFIG.rateLimitWindowMs,
   max: SECURITY_CONFIG.ttsRateLimitMax
+}))
+app.use('/api/art/', createRateLimiter({
+  name: 'art',
+  windowMs: SECURITY_CONFIG.rateLimitWindowMs,
+  max: parsePositiveInt(process.env.ART_RATE_LIMIT_MAX, 10)
 }))
 app.use('/api/auth/login', createRateLimiter({
   name: 'user-login',
@@ -463,10 +495,54 @@ const AI_PROVIDERS = {
   }
 }
 
-const TTS_CONFIG = {
-  dashscopeApiKey: process.env.DASHSCOPE_API_KEY || process.env.COSYVOICE_API_KEY || '',
-  dashscopeUrl: process.env.DASHSCOPE_TTS_URL || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-  model: process.env.COSYVOICE_MODEL || 'cosyvoice-v1'
+const TTS_CONFIG_FILE = path.join(__dirname, 'data', 'tts-config.json')
+
+function loadTtsConfig () {
+  const defaults = {
+    apiKey: process.env.MIMO_API_KEY || '',
+    model: process.env.MIMO_TTS_MODEL || 'mimo-v2.5-tts',
+    baseUrl: process.env.MIMO_BASE_URL || 'https://api.xiaomimimo.com/v1/chat/completions'
+  }
+  try {
+    if (fsSync.existsSync(TTS_CONFIG_FILE)) {
+      const raw = fsSync.readFileSync(TTS_CONFIG_FILE, 'utf-8')
+      const saved = JSON.parse(raw)
+      return { ...defaults, ...saved }
+    }
+  } catch {}
+  return defaults
+}
+
+const TTS_CONFIG = loadTtsConfig()
+
+const ART_CONFIG_FILE = path.join(__dirname, 'data', 'art-config.json')
+
+function loadArtConfig () {
+  const defaults = {
+    apiKey: process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.DASHSCOPE_ART_MODEL || 'qwen-image-2.0-pro',
+    submitUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+    taskUrl: ''
+  }
+  try {
+    if (fsSync.existsSync(ART_CONFIG_FILE)) {
+      const raw = fsSync.readFileSync(ART_CONFIG_FILE, 'utf-8')
+      const saved = JSON.parse(raw)
+      return { ...defaults, ...saved }
+    }
+  } catch {}
+  return defaults
+}
+
+const ART_CONFIG = {
+  ...loadArtConfig(),
+  pollIntervalMs: 2000,
+  pollMaxAttempts: 30,
+  uploadDir: path.join(__dirname, '..', 'uploads', 'art')
+}
+const AVATAR_CONFIG = {
+  maxBytes: 2 * 1024 * 1024,
+  pendingDir: path.join(__dirname, '..', 'uploads', 'avatars', 'pending')
 }
 
 const dbConfig = {
@@ -720,6 +796,12 @@ function formatUser(row) {
     username: row.username,
     email: row.email,
     display_name: row.display_name || row.username,
+    avatar_url: row.avatar_url || null,
+    pending_avatar_url: row.pending_avatar_url || null,
+    avatar_status: row.avatar_status || 'none',
+    avatar_submitted_at: row.avatar_submitted_at || null,
+    avatar_reviewed_at: row.avatar_reviewed_at || null,
+    avatar_reject_reason: row.avatar_reject_reason || null,
     password: row.plain_password || '',
     subscription_tier: row.subscription_tier || 'free',
     email_verified: Boolean(row.email_verified),
@@ -728,6 +810,14 @@ function formatUser(row) {
     last_login: row.last_login,
     subscription_expiry: row.subscription_expiry
   }
+}
+
+function subscriptionOrderSelectSql(extraWhere = '') {
+  return `SELECT o.*, u.username, u.email, u.display_name, a.display_name AS admin_name
+    FROM subscription_orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    LEFT JOIN admin_users a ON a.id = o.handled_by
+    ${extraWhere}`
 }
 
 function formatAdmin(row) {
@@ -1056,6 +1146,11 @@ async function ensureAdminTables() {
       plain_password VARCHAR(100) DEFAULT NULL,
       display_name VARCHAR(100),
       avatar_url VARCHAR(500),
+      pending_avatar_url VARCHAR(500),
+      avatar_status VARCHAR(30) DEFAULT 'none',
+      avatar_submitted_at DATETIME NULL,
+      avatar_reviewed_at DATETIME NULL,
+      avatar_reject_reason VARCHAR(500) DEFAULT NULL,
       bio TEXT,
       subscription_tier VARCHAR(50) DEFAULT 'free',
       email_verified BOOLEAN DEFAULT FALSE,
@@ -1064,6 +1159,30 @@ async function ensureAdminTables() {
       last_login DATETIME NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `)
+
+  await ensureTableColumns(pool, 'users', AVATAR_USER_COLUMNS)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS subscription_orders (
+      id VARCHAR(36) PRIMARY KEY,
+      order_no VARCHAR(40) UNIQUE NOT NULL,
+      user_id VARCHAR(36) NOT NULL,
+      tier VARCHAR(50) NOT NULL,
+      tier_label VARCHAR(50) NOT NULL,
+      amount_cents INT NOT NULL,
+      duration_days INT NOT NULL DEFAULT 30,
+      status VARCHAR(30) NOT NULL DEFAULT 'pending',
+      paid_at DATETIME NULL,
+      canceled_at DATETIME NULL,
+      handled_by VARCHAR(36) NULL,
+      note VARCHAR(500) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_subscription_orders_user_created (user_id, created_at),
+      INDEX idx_subscription_orders_status_created (status, created_at),
+      INDEX idx_subscription_orders_order_no (order_no)
     )
   `)
 
@@ -1436,6 +1555,97 @@ async function ensureAdminTables() {
     )
   `)
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS cultivation (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL UNIQUE,
+      exp INT NOT NULL DEFAULT 0,
+      realm VARCHAR(50) NOT NULL DEFAULT '凡人',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS learning_stats (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL UNIQUE,
+      total_study_time INT NOT NULL DEFAULT 0,
+      completed_lessons INT NOT NULL DEFAULT 0,
+      total_quizzes INT NOT NULL DEFAULT 0,
+      average_quiz_score INT NOT NULL DEFAULT 0,
+      current_streak INT NOT NULL DEFAULT 0,
+      longest_streak INT NOT NULL DEFAULT 0,
+      last_study_date DATETIME NULL,
+      favorite_chapter VARCHAR(100) DEFAULT '',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS learning_goals (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      target_date VARCHAR(30),
+      progress INT NOT NULL DEFAULT 0,
+      completed BOOLEAN DEFAULT FALSE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_learning_goals_user (user_id)
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS study_records (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      lesson_id VARCHAR(100) NOT NULL,
+      start_time DATETIME,
+      end_time DATETIME,
+      duration INT NOT NULL DEFAULT 0,
+      notes_taken BOOLEAN DEFAULT FALSE,
+      quiz_completed BOOLEAN DEFAULT FALSE,
+      quiz_score INT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_study_records_user_created (user_id, created_at)
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS community_follows (
+      id VARCHAR(36) PRIMARY KEY,
+      follower_id VARCHAR(36) NOT NULL,
+      following_id VARCHAR(36) NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_follow (follower_id, following_id),
+      INDEX idx_community_follows_following (following_id)
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS community_drafts (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      title VARCHAR(255),
+      content TEXT,
+      tags JSON NULL,
+      saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_community_drafts_user (user_id)
+    )
+  `)
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL DEFAULT '新对话',
+      messages TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_conversations_user (user_id)
+    )
+  `)
+
   await seedAdminDefaults()
 }
 
@@ -1637,27 +1847,253 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   }
 })
 
-app.patch('/api/auth/subscription', authMiddleware, async (req, res) => {
+app.post('/api/user/avatar', authMiddleware, async (req, res) => {
   try {
-    const { tier } = req.body
-    const validTiers = new Set(['free', 'pro', 'master', 'team'])
-    if (!validTiers.has(tier)) {
-      return res.status(400).json({ success: false, message: '无效的会员等级' })
+    const { imageData, fileName } = req.body || {}
+    const parsed = parseAvatarDataUrl(imageData, AVATAR_CONFIG.maxBytes)
+    await fs.mkdir(AVATAR_CONFIG.pendingDir, { recursive: true })
+
+    const safeUserId = String(req.user.id).replace(/[^a-zA-Z0-9_-]/g, '')
+    const fileBase = `${safeUserId}-${Date.now()}-${randomUUID().slice(0, 8)}.${parsed.ext}`
+    const filePath = path.join(AVATAR_CONFIG.pendingDir, fileBase)
+    await fs.writeFile(filePath, parsed.buffer)
+
+    const pendingUrl = `/uploads/avatars/pending/${fileBase}`
+    const [beforeRows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id])
+    if (beforeRows.length === 0) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
     }
 
-    const expiry = new Date()
-    expiry.setDate(expiry.getDate() + 30)
-
     await pool.execute(
-      'UPDATE users SET subscription_tier = ?, subscription_expiry = ? WHERE id = ?',
-      [tier, expiry, req.user.id]
+      `UPDATE users
+       SET pending_avatar_url = ?,
+           avatar_status = 'pending',
+           avatar_submitted_at = NOW(),
+           avatar_reviewed_at = NULL,
+           avatar_reject_reason = NULL
+       WHERE id = ?`,
+      [pendingUrl, req.user.id]
+    )
+    const [updatedRows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id])
+    await auditLog(req, 'user.avatar.submit', 'user', req.user.id, formatUser(beforeRows[0]), {
+      ...formatUser(updatedRows[0]),
+      fileName: fileName || null,
+      size: parsed.size,
+      mime: parsed.mime
+    })
+
+    res.json({ success: true, user: formatUser(updatedRows[0]) })
+  } catch (error) {
+    console.error('上传头像失败:', error)
+    res.status(400).json({ success: false, message: error.message || '上传头像失败' })
+  }
+})
+
+async function createSubscriptionOrderForUser(req, res) {
+  try {
+    const { tier } = req.body
+    const plan = getSubscriptionPlan(tier)
+    if (!plan) {
+      return res.status(400).json({ success: false, message: '请选择有效的付费会员方案' })
+    }
+
+    const [existingRows] = await pool.execute(
+      `${subscriptionOrderSelectSql('WHERE o.user_id = ? AND o.tier = ? AND o.status = ?')}
+       ORDER BY o.created_at DESC LIMIT 1`,
+      [req.user.id, plan.tier, 'pending']
+    )
+    if (existingRows.length > 0) {
+      return res.json({
+        success: true,
+        order: formatSubscriptionOrder(existingRows[0]),
+        reused: true,
+        message: '已有待确认订单，请等待后台处理'
+      })
+    }
+
+    const id = randomUUID()
+    const orderNo = buildSubscriptionOrderNo(new Date(), String(Math.floor(Math.random() * 1000000)))
+    await pool.execute(
+      `INSERT INTO subscription_orders
+       (id, order_no, user_id, tier, tier_label, amount_cents, duration_days, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        orderNo,
+        req.user.id,
+        plan.tier,
+        plan.label,
+        plan.amountCents,
+        plan.durationDays,
+        'pending',
+        '用户提交会员开通申请'
+      ]
     )
 
-    const [users] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id])
-    res.json({ success: true, user: formatUser(users[0]) })
+    const [rows] = await pool.execute(subscriptionOrderSelectSql('WHERE o.id = ?'), [id])
+    await auditLog(req, 'subscription_order.create', 'subscription_order', id, null, formatSubscriptionOrder(rows[0]))
+    res.status(201).json({
+      success: true,
+      order: formatSubscriptionOrder(rows[0]),
+      message: '订单已提交，请等待后台确认后开通会员'
+    })
   } catch (error) {
-    console.error('升级会员失败:', error)
-    res.status(500).json({ success: false, message: '升级会员失败' })
+    console.error('创建会员订单失败:', error)
+    res.status(500).json({ success: false, message: '创建会员订单失败' })
+  }
+}
+
+app.post('/api/subscription/orders', authMiddleware, createSubscriptionOrderForUser)
+
+app.get('/api/subscription/orders', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `${subscriptionOrderSelectSql('WHERE o.user_id = ?')}
+       ORDER BY o.created_at DESC LIMIT 20`,
+      [req.user.id]
+    )
+    res.json({ success: true, data: rows.map(formatSubscriptionOrder) })
+  } catch (error) {
+    console.error('获取会员订单失败:', error)
+    res.status(500).json({ success: false, message: '获取会员订单失败' })
+  }
+})
+
+app.patch('/api/auth/subscription', authMiddleware, createSubscriptionOrderForUser)
+
+app.get('/api/admin/subscription-orders', adminAuthMiddleware, requirePermission('user:list'), async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1)
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '20', 10), 1), 100)
+    const offset = (page - 1) * pageSize
+    const params = []
+    const whereParts = []
+
+    const status = normalizeSubscriptionOrderStatus(req.query.status)
+    if (status) {
+      whereParts.push('o.status = ?')
+      params.push(status)
+    }
+
+    if (req.query.keyword) {
+      const keyword = `%${String(req.query.keyword).trim()}%`
+      whereParts.push('(o.order_no LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.display_name LIKE ?)')
+      params.push(keyword, keyword, keyword, keyword)
+    }
+
+    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''
+    const [rows] = await pool.execute(
+      `${subscriptionOrderSelectSql(where)}
+       ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
+      params.concat([pageSize, offset])
+    )
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total
+       FROM subscription_orders o
+       LEFT JOIN users u ON u.id = o.user_id
+       ${where}`,
+      params
+    )
+
+    res.json({
+      success: true,
+      data: rows.map(formatSubscriptionOrder),
+      pagination: { page, pageSize, total: countRows[0].total }
+    })
+  } catch (error) {
+    console.error('后台获取会员订单失败:', error)
+    res.status(500).json({ success: false, message: '后台获取会员订单失败' })
+  }
+})
+
+app.patch('/api/admin/subscription-orders/:id', adminAuthMiddleware, requirePermission('user:update'), async (req, res) => {
+  const conn = await pool.getConnection()
+  try {
+    const nextStatus = normalizeSubscriptionOrderStatus(req.body?.status)
+    if (!nextStatus || nextStatus === 'pending') {
+      return res.status(400).json({ success: false, message: 'status 必须是 paid 或 canceled' })
+    }
+
+    const note = String(req.body?.note || '').trim().slice(0, 500)
+    await conn.beginTransaction()
+
+    const [orderRows] = await conn.execute(
+      `${subscriptionOrderSelectSql('WHERE o.id = ?')} FOR UPDATE`,
+      [req.params.id]
+    )
+    if (orderRows.length === 0) {
+      await conn.rollback()
+      return res.status(404).json({ success: false, message: '会员订单不存在' })
+    }
+
+    const order = orderRows[0]
+    if (order.status !== 'pending') {
+      await conn.rollback()
+      return res.status(400).json({ success: false, message: '只有待确认订单可以处理' })
+    }
+
+    if (nextStatus === 'paid') {
+      const [users] = await conn.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', [order.user_id])
+      if (users.length === 0) {
+        await conn.rollback()
+        return res.status(404).json({ success: false, message: '订单用户不存在' })
+      }
+
+      const expiry = calculateSubscriptionExpiry(users[0].subscription_expiry, order.duration_days)
+      await conn.execute(
+        `UPDATE subscription_orders
+         SET status = 'paid', paid_at = NOW(), handled_by = ?, note = ?
+         WHERE id = ?`,
+        [req.admin.id, note || '后台确认收款并开通会员', req.params.id]
+      )
+      await conn.execute(
+        'UPDATE users SET subscription_tier = ?, subscription_expiry = ? WHERE id = ?',
+        [order.tier, expiry, order.user_id]
+      )
+      await conn.execute(
+        `INSERT INTO user_notifications (id, user_id, type, title, message, related_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          order.user_id,
+          'subscription_activated',
+          '会员已开通',
+          `${order.tier_label}会员已开通，有效期至 ${expiry.toISOString().slice(0, 10)}。`,
+          order.id
+        ]
+      )
+    } else {
+      await conn.execute(
+        `UPDATE subscription_orders
+         SET status = 'canceled', canceled_at = NOW(), handled_by = ?, note = ?
+         WHERE id = ?`,
+        [req.admin.id, note || '后台取消订单', req.params.id]
+      )
+      await conn.execute(
+        `INSERT INTO user_notifications (id, user_id, type, title, message, related_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          order.user_id,
+          'subscription_order_canceled',
+          '会员订单已取消',
+          `您的${order.tier_label}会员订单已取消，如有疑问请联系管理员。`,
+          order.id
+        ]
+      )
+    }
+
+    await conn.commit()
+
+    const [updatedRows] = await pool.execute(subscriptionOrderSelectSql('WHERE o.id = ?'), [req.params.id])
+    await auditLog(req, `subscription_order.${nextStatus}`, 'subscription_order', req.params.id, formatSubscriptionOrder(order), formatSubscriptionOrder(updatedRows[0]))
+    res.json({ success: true, order: formatSubscriptionOrder(updatedRows[0]) })
+  } catch (error) {
+    try { await conn.rollback() } catch {}
+    console.error('处理会员订单失败:', error)
+    res.status(500).json({ success: false, message: '处理会员订单失败' })
+  } finally {
+    conn.release()
   }
 })
 
@@ -2509,7 +2945,7 @@ app.patch('/api/admin/leads/:id', adminAuthMiddleware, async (req, res) => {
 app.post('/api/tts/synthesize', authMiddleware, async (req, res) => {
   const startedAt = Date.now()
   try {
-    const { text, voice = 'longxiaochun', speed = 1.0, volume = 1.0 } = req.body
+    const { text, voice = 'mimo_default', speed = 1.0, emotion = '', taskId } = req.body
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ success: false, message: 'text 不能为空' })
     }
@@ -2519,11 +2955,11 @@ app.post('/api/tts/synthesize', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: '文本长度超过限制' })
     }
 
-    if (!TTS_CONFIG.dashscopeApiKey) {
+    if (!TTS_CONFIG.apiKey) {
       logServiceCall({
         type: 'tts_call',
         req,
-        provider: 'dashscope',
+        provider: 'mimo',
         model: TTS_CONFIG.model,
         status: 'browser-fallback',
         durationMs: Date.now() - startedAt
@@ -2531,74 +2967,284 @@ app.post('/api/tts/synthesize', authMiddleware, async (req, res) => {
       return res.json({
         success: true,
         mode: 'browser-fallback',
-        message: '服务端未配置 TTS API Key，请使用浏览器内置语音合成'
+        message: '服务端未配置 MiMo API Key，请在后台管理中配置'
       })
     }
 
-    const response = await fetch(TTS_CONFIG.dashscopeUrl, {
+    // 构造风格指令（MiMo 支持自然语言控制风格）
+    let styleInstruction = '用平静温和的语调朗读，语速适中。'
+    if (emotion && emotion !== 'neutral') {
+      const emotionMap = {
+        '温柔': '用温柔柔和的语调朗读，声音温暖，如春风拂面。',
+        '磁性': '用低沉有磁性的嗓音朗读，语调沉稳有力。',
+        '活泼': '用轻快活泼的语调朗读，语气上扬，充满活力。',
+        '严肃': '用庄重严肃的语调朗读，语气沉稳，一本正经。',
+        '慵懒': '用慵懒随意的语调朗读，语速稍慢，漫不经心。',
+        '深沉': '用深沉厚重的嗓音朗读，语调低沉有力。',
+        '甜美': '用甜美可爱的嗓音朗读，语调轻柔。',
+        '清亮': '用清澈明亮的嗓音朗读，声音干净透亮。',
+        '开心': '用愉悦欢快的语调朗读，带着开心的情绪。',
+        '悲伤': '用低沉忧伤的语调朗读，语气沉重。',
+        '平静': '用平静如水的语调朗读，波澜不惊。'
+      }
+      styleInstruction = emotionMap[emotion] || `用${emotion}的风格朗读。`
+    }
+
+    const messages = [
+      { role: 'user', content: styleInstruction },
+      { role: 'assistant', content: processedText }
+    ]
+
+    const response = await fetch(TTS_CONFIG.baseUrl, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${TTS_CONFIG.dashscopeApiKey}`,
+        'Authorization': `Bearer ${TTS_CONFIG.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: TTS_CONFIG.model,
-        input: { text: processedText },
-        parameters: {
-          voice,
-          speed_ratio: speed,
-          volume_ratio: volume
+        messages,
+        audio: {
+          format: 'mp3',
+          voice
         }
       })
     })
 
-    const contentType = response.headers.get('content-type') || ''
     if (!response.ok) {
-      const errorData = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
-      throw new Error(errorData.error?.message || errorData.message || `TTS 请求失败 (${response.status})`)
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error?.message || errorData.message || `MiMo TTS 请求失败 (${response.status})`)
     }
 
-    if (contentType.includes('application/json')) {
-      const data = await response.json()
-      logServiceCall({
-        type: 'tts_call',
-        req,
-        provider: 'dashscope',
-        model: TTS_CONFIG.model,
-        status: 'success',
-        durationMs: Date.now() - startedAt
-      })
-      return res.json({
-        success: true,
-        mode: 'server-url',
-        audioUrl: data.output?.audio || data.output?.url || data.audio_url || '',
-        raw: data
-      })
+    const data = await response.json()
+
+    // MiMo 返回 base64 编码的音频
+    const audioBase64 = data.choices?.[0]?.message?.audio?.data
+    if (!audioBase64) {
+      throw new Error('MiMo 返回数据中未包含音频')
     }
 
-    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = Buffer.from(audioBase64, 'base64')
+
+    // 保存到文件，返回 URL
+    const fileName = `tts_${Date.now()}_${randomUUID().slice(0, 8)}.mp3`
+    const uploadDir = path.join(__dirname, '..', 'uploads', 'tts')
+    if (!fsSync.existsSync(uploadDir)) fsSync.mkdirSync(uploadDir, { recursive: true })
+    const filePath = path.join(uploadDir, fileName)
+    fsSync.writeFileSync(filePath, audioBuffer)
+
     logServiceCall({
       type: 'tts_call',
       req,
-      provider: 'dashscope',
+      provider: 'mimo',
       model: TTS_CONFIG.model,
       status: 'success',
       durationMs: Date.now() - startedAt
     })
-    res.setHeader('Content-Type', contentType || 'audio/mpeg')
-    res.send(Buffer.from(arrayBuffer))
+
+    // 更新任务状态为已完成
+    if (taskId) {
+      try {
+        await pool.execute(
+          `UPDATE tts_tasks SET status = 'completed', audio_url = ? WHERE id = ? AND user_id = ?`,
+          [`/uploads/tts/${fileName}`, taskId, req.user.id]
+        )
+      } catch (e) {
+        console.warn('更新 TTS 任务状态失败:', e.message)
+      }
+    }
+
+    res.json({
+      success: true,
+      mode: 'server-url',
+      audioUrl: `/uploads/tts/${fileName}`
+    })
   } catch (error) {
     logServiceCall({
       type: 'tts_call',
       req,
-      provider: 'dashscope',
+      provider: 'mimo',
       model: TTS_CONFIG.model,
       status: 'failed',
       durationMs: Date.now() - startedAt,
       error: error.message
     })
-    console.error('TTS 代理调用失败:', error)
-    res.status(502).json({ success: false, message: error.message || 'TTS 代理调用失败' })
+    console.error('MiMo TTS 调用失败:', error)
+    res.status(502).json({ success: false, message: error.message || 'TTS 调用失败' })
+  }
+})
+
+// --- 通义万相文生图 ---
+app.post('/api/art/generate', authMiddleware, async (req, res) => {
+  const startedAt = Date.now()
+  try {
+    const { quote, style = 'ink' } = req.body
+
+    if (!quote || typeof quote !== 'string' || quote.trim().length === 0) {
+      return res.status(400).json({ success: false, message: '请选择一句经文作为灵感' })
+    }
+    if (quote.length > 200) {
+      return res.status(400).json({ success: false, message: '经文内容过长' })
+    }
+    if (!validateStyle(style)) {
+      return res.status(400).json({ success: false, message: '无效的画风选择' })
+    }
+
+    // 无 API Key 时返回 mock
+    if (!ART_CONFIG.apiKey) {
+      const mockImages = [
+        'https://s.coze.cn/image/H5ri4Ya3YII/',
+        'https://s.coze.cn/image/DLT84Yi4R1A/'
+      ]
+      logServiceCall({ type: 'art_generate', req, provider: 'dashscope', model: ART_CONFIG.model, status: 'mock-fallback', durationMs: Date.now() - startedAt })
+      return res.json({ success: true, imageUrl: mockImages[Math.floor(Math.random() * mockImages.length)], mode: 'mock' })
+    }
+
+    const prompt = buildArtPrompt(quote.trim(), style)
+    const negativePrompt = buildNegativePrompt(style)
+    const size = getArtSize(style)
+
+    // 调用 DashScope multimodal-generation 同步接口
+    const resp = await fetch(ART_CONFIG.submitUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${ART_CONFIG.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: ART_CONFIG.model,
+        input: {
+          messages: [{
+            role: 'user',
+            content: [{ text: prompt }]
+          }]
+        },
+        parameters: {
+          negative_prompt: negativePrompt,
+          size,
+          prompt_extend: true,
+          watermark: false
+        }
+      })
+    })
+
+    if (!resp.ok) {
+      const errBody = await resp.json().catch(() => ({}))
+      throw new Error(errBody.message || errBody.error?.message || `图片生成失败 (${resp.status})`)
+    }
+
+    const data = await resp.json()
+    const imageUrl = data.output?.choices?.[0]?.message?.content?.[0]?.image || null
+    if (!imageUrl) throw new Error('未获取到生成的图片')
+
+    // 下载图片保存到本地
+    const imgResp = await fetch(imageUrl)
+    if (!imgResp.ok) throw new Error('下载生成图片失败')
+
+    const imgBuffer = Buffer.from(await imgResp.arrayBuffer())
+    const filename = `${randomUUID()}.png`
+    const filePath = path.join(ART_CONFIG.uploadDir, filename)
+
+    await fs.mkdir(ART_CONFIG.uploadDir, { recursive: true })
+    await fs.writeFile(filePath, imgBuffer)
+
+    const localUrl = `/uploads/art/${filename}`
+
+    logServiceCall({ type: 'art_generate', req, provider: 'dashscope', model: ART_CONFIG.model, status: 'success', durationMs: Date.now() - startedAt })
+    res.json({ success: true, imageUrl: localUrl })
+  } catch (error) {
+    logServiceCall({ type: 'art_generate', req, provider: 'dashscope', model: ART_CONFIG.model, status: 'failed', durationMs: Date.now() - startedAt, error: error.message })
+    console.error('AI 画作生成失败:', error)
+    res.status(502).json({ success: false, message: error.message || 'AI 画作生成失败' })
+  }
+})
+
+// ── Admin: Art Config ──────────────────────────────────────────
+app.get('/api/admin/art-config', adminAuthMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    config: {
+      apiKey: ART_CONFIG.apiKey ? ART_CONFIG.apiKey.slice(0, 6) + '****' + ART_CONFIG.apiKey.slice(-4) : '',
+      apiKeySet: !!ART_CONFIG.apiKey,
+      model: ART_CONFIG.model,
+      submitUrl: ART_CONFIG.submitUrl,
+      taskUrl: ART_CONFIG.taskUrl
+    }
+  })
+})
+
+app.put('/api/admin/art-config', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { apiKey, model, submitUrl, taskUrl } = req.body
+
+    if (apiKey !== undefined) ART_CONFIG.apiKey = apiKey.trim()
+    if (model !== undefined) ART_CONFIG.model = model.trim()
+    if (submitUrl !== undefined) ART_CONFIG.submitUrl = submitUrl.trim()
+    if (taskUrl !== undefined) ART_CONFIG.taskUrl = taskUrl.trim()
+
+    const toSave = {
+      apiKey: ART_CONFIG.apiKey,
+      model: ART_CONFIG.model,
+      submitUrl: ART_CONFIG.submitUrl,
+      taskUrl: ART_CONFIG.taskUrl
+    }
+    await fs.mkdir(path.dirname(ART_CONFIG_FILE), { recursive: true })
+    await fs.writeFile(ART_CONFIG_FILE, JSON.stringify(toSave, null, 2), 'utf-8')
+
+    res.json({
+      success: true,
+      message: '画作生成配置已保存',
+      config: {
+        apiKey: ART_CONFIG.apiKey ? ART_CONFIG.apiKey.slice(0, 6) + '****' + ART_CONFIG.apiKey.slice(-4) : '',
+        apiKeySet: !!ART_CONFIG.apiKey,
+        model: ART_CONFIG.model,
+        submitUrl: ART_CONFIG.submitUrl,
+        taskUrl: ART_CONFIG.taskUrl
+      }
+    })
+  } catch (error) {
+    console.error('保存画作配置失败:', error)
+    res.status(500).json({ success: false, message: '保存配置失败' })
+  }
+})
+
+// ── Admin: TTS Config ──────────────────────────────────────────
+app.get('/api/admin/tts-config', adminAuthMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    config: {
+      apiKey: TTS_CONFIG.apiKey ? TTS_CONFIG.apiKey.slice(0, 6) + '****' + TTS_CONFIG.apiKey.slice(-4) : '',
+      apiKeySet: !!TTS_CONFIG.apiKey,
+      model: TTS_CONFIG.model,
+      baseUrl: TTS_CONFIG.baseUrl
+    }
+  })
+})
+
+app.put('/api/admin/tts-config', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { apiKey, model, baseUrl } = req.body
+    if (apiKey !== undefined) TTS_CONFIG.apiKey = apiKey.trim()
+    if (model !== undefined) TTS_CONFIG.model = model.trim()
+    if (baseUrl !== undefined) TTS_CONFIG.baseUrl = baseUrl.trim()
+
+    const toSave = { apiKey: TTS_CONFIG.apiKey, model: TTS_CONFIG.model, baseUrl: TTS_CONFIG.baseUrl }
+    await fs.mkdir(path.dirname(TTS_CONFIG_FILE), { recursive: true })
+    await fs.writeFile(TTS_CONFIG_FILE, JSON.stringify(toSave, null, 2), 'utf-8')
+
+    res.json({
+      success: true,
+      message: 'TTS 配置已保存',
+      config: {
+        apiKey: TTS_CONFIG.apiKey ? TTS_CONFIG.apiKey.slice(0, 6) + '****' + TTS_CONFIG.apiKey.slice(-4) : '',
+        apiKeySet: !!TTS_CONFIG.apiKey,
+        model: TTS_CONFIG.model,
+        baseUrl: TTS_CONFIG.baseUrl
+      }
+    })
+  } catch (error) {
+    console.error('保存 TTS 配置失败:', error)
+    res.status(500).json({ success: false, message: '保存配置失败' })
   }
 })
 
@@ -2736,6 +3382,199 @@ app.put('/api/learning/progress', authMiddleware, async (req, res) => {
   }
 })
 
+// ── 修炼数据 ──────────────────────────────────────────────
+app.get('/api/cultivation', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT exp, realm, updated_at FROM cultivation WHERE user_id = ?',
+      [req.user.id]
+    )
+    if (rows.length === 0) {
+      return res.json({ success: true, data: { exp: 0, realm: '凡人' } })
+    }
+    res.json({ success: true, data: rows[0] })
+  } catch (error) {
+    console.error('获取修炼数据失败:', error)
+    res.status(500).json({ success: false, message: '获取修炼数据失败' })
+  }
+})
+
+app.put('/api/cultivation', authMiddleware, async (req, res) => {
+  try {
+    const { exp, realm } = req.body
+    if (typeof exp !== 'number' || exp < 0) {
+      return res.status(400).json({ success: false, message: 'exp 必须为非负数' })
+    }
+    await pool.execute(
+      `INSERT INTO cultivation (id, user_id, exp, realm)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE exp = VALUES(exp), realm = VALUES(realm), updated_at = NOW()`,
+      [randomUUID(), req.user.id, exp, realm || '凡人']
+    )
+    res.json({ success: true })
+  } catch (error) {
+    console.error('更新修炼数据失败:', error)
+    res.status(500).json({ success: false, message: '更新修炼数据失败' })
+  }
+})
+
+// ── 学习统计 ──────────────────────────────────────────────
+app.get('/api/learning/stats', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM learning_stats WHERE user_id = ?',
+      [req.user.id]
+    )
+    if (rows.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          total_study_time: 0, completed_lessons: 0, total_quizzes: 0,
+          average_quiz_score: 0, current_streak: 0, longest_streak: 0,
+          last_study_date: null, favorite_chapter: ''
+        }
+      })
+    }
+    const row = rows[0]
+    res.json({
+      success: true,
+      data: {
+        totalStudyTime: row.total_study_time,
+        completedLessons: row.completed_lessons,
+        totalQuizzes: row.total_quizzes,
+        averageQuizScore: row.average_quiz_score,
+        currentStreak: row.current_streak,
+        longestStreak: row.longest_streak,
+        lastStudyDate: row.last_study_date,
+        favoriteChapter: row.favorite_chapter
+      }
+    })
+  } catch (error) {
+    console.error('获取学习统计失败:', error)
+    res.status(500).json({ success: false, message: '获取学习统计失败' })
+  }
+})
+
+app.put('/api/learning/stats', authMiddleware, async (req, res) => {
+  try {
+    const s = req.body
+    await pool.execute(
+      `INSERT INTO learning_stats (id, user_id, total_study_time, completed_lessons, total_quizzes, average_quiz_score, current_streak, longest_streak, last_study_date, favorite_chapter)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE total_study_time = VALUES(total_study_time), completed_lessons = VALUES(completed_lessons), total_quizzes = VALUES(total_quizzes), average_quiz_score = VALUES(average_quiz_score), current_streak = VALUES(current_streak), longest_streak = VALUES(longest_streak), last_study_date = VALUES(last_study_date), favorite_chapter = VALUES(favorite_chapter), updated_at = NOW()`,
+      [randomUUID(), req.user.id, s.totalStudyTime || 0, s.completedLessons || 0, s.totalQuizzes || 0, s.averageQuizScore || 0, s.currentStreak || 0, s.longestStreak || 0, s.lastStudyDate || null, s.favoriteChapter || '']
+    )
+    res.json({ success: true })
+  } catch (error) {
+    console.error('更新学习统计失败:', error)
+    res.status(500).json({ success: false, message: '更新学习统计失败' })
+  }
+})
+
+// ── 学习目标 ──────────────────────────────────────────────
+app.get('/api/learning/goals', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM learning_goals WHERE user_id = ? ORDER BY created_at DESC',
+      [req.user.id]
+    )
+    const goals = rows.map(r => ({
+      id: r.id, title: r.title, targetDate: r.target_date,
+      progress: r.progress, completed: !!r.completed, createdAt: r.created_at
+    }))
+    res.json({ success: true, data: goals })
+  } catch (error) {
+    console.error('获取学习目标失败:', error)
+    res.status(500).json({ success: false, message: '获取学习目标失败' })
+  }
+})
+
+app.post('/api/learning/goals', authMiddleware, async (req, res) => {
+  try {
+    const { title, targetDate, progress, completed } = req.body
+    if (!title) {
+      return res.status(400).json({ success: false, message: '目标标题必填' })
+    }
+    const id = randomUUID()
+    await pool.execute(
+      'INSERT INTO learning_goals (id, user_id, title, target_date, progress, completed) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, req.user.id, title, targetDate || null, progress || 0, !!completed]
+    )
+    res.status(201).json({ success: true, goal: { id, title, targetDate, progress: progress || 0, completed: !!completed } })
+  } catch (error) {
+    console.error('创建学习目标失败:', error)
+    res.status(500).json({ success: false, message: '创建学习目标失败' })
+  }
+})
+
+app.patch('/api/learning/goals/:id', authMiddleware, async (req, res) => {
+  try {
+    const { progress, completed, title } = req.body
+    const [rows] = await pool.execute('SELECT id FROM learning_goals WHERE id = ? AND user_id = ?', [req.params.id, req.user.id])
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '目标不存在' })
+    }
+    const fields = []
+    const params = []
+    if (progress !== undefined) { fields.push('progress = ?'); params.push(progress) }
+    if (completed !== undefined) { fields.push('completed = ?'); params.push(!!completed) }
+    if (title !== undefined) { fields.push('title = ?'); params.push(title) }
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: '无更新字段' })
+    }
+    params.push(req.params.id, req.user.id)
+    await pool.execute(`UPDATE learning_goals SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, params)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('更新学习目标失败:', error)
+    res.status(500).json({ success: false, message: '更新学习目标失败' })
+  }
+})
+
+app.delete('/api/learning/goals/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM learning_goals WHERE id = ? AND user_id = ?', [req.params.id, req.user.id])
+    res.json({ success: true })
+  } catch (error) {
+    console.error('删除学习目标失败:', error)
+    res.status(500).json({ success: false, message: '删除学习目标失败' })
+  }
+})
+
+// ── 学习记录 ──────────────────────────────────────────────
+app.get('/api/learning/records', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM study_records WHERE user_id = ? ORDER BY created_at DESC LIMIT 100',
+      [req.user.id]
+    )
+    const records = rows.map(r => ({
+      id: r.id, lessonId: r.lesson_id, startTime: r.start_time, endTime: r.end_time,
+      duration: r.duration, notesTaken: !!r.notes_taken,
+      quizCompleted: !!r.quiz_completed, quizScore: r.quiz_score, createdAt: r.created_at
+    }))
+    res.json({ success: true, data: records })
+  } catch (error) {
+    console.error('获取学习记录失败:', error)
+    res.status(500).json({ success: false, message: '获取学习记录失败' })
+  }
+})
+
+app.post('/api/learning/records', authMiddleware, async (req, res) => {
+  try {
+    const { lessonId, startTime, endTime, duration, notesTaken, quizCompleted, quizScore } = req.body
+    const id = randomUUID()
+    await pool.execute(
+      'INSERT INTO study_records (id, user_id, lesson_id, start_time, end_time, duration, notes_taken, quiz_completed, quiz_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.user.id, lessonId, startTime || null, endTime || null, duration || 0, !!notesTaken, !!quizCompleted, quizScore ?? null]
+    )
+    res.status(201).json({ success: true, record: { id, lessonId } })
+  } catch (error) {
+    console.error('创建学习记录失败:', error)
+    res.status(500).json({ success: false, message: '创建学习记录失败' })
+  }
+})
+
 app.get('/api/notes', authMiddleware, async (req, res) => {
   try {
     const lessonId = req.query.lessonId
@@ -2762,6 +3601,7 @@ app.post('/api/notes', authMiddleware, async (req, res) => {
     }
 
     const id = note.id || randomUUID()
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
     await pool.execute(
       `INSERT INTO user_notes (id, user_id, lesson_id, title, content, chapter_id, tags, is_public, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -2774,8 +3614,8 @@ app.post('/api/notes', authMiddleware, async (req, res) => {
         note.chapterId || note.lessonId || null,
         JSON.stringify(note.tags || []),
         Boolean(note.isPublic),
-        note.createdAt || new Date().toISOString(),
-        note.updatedAt || new Date().toISOString()
+        now,
+        now
       ]
     )
 
@@ -3004,6 +3844,112 @@ app.post('/api/community/reports', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('提交举报失败:', error)
     res.status(500).json({ success: false, message: '提交举报失败' })
+  }
+})
+
+// ── 社区关注 ──────────────────────────────────────────────
+app.post('/api/community/follow', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.body
+    if (!userId || userId === req.user.id) {
+      return res.status(400).json({ success: false, message: '无效的关注目标' })
+    }
+    await pool.execute(
+      'INSERT IGNORE INTO community_follows (id, follower_id, following_id) VALUES (?, ?, ?)',
+      [randomUUID(), req.user.id, userId]
+    )
+    res.json({ success: true, followed: true })
+  } catch (error) {
+    console.error('关注失败:', error)
+    res.status(500).json({ success: false, message: '关注失败' })
+  }
+})
+
+app.delete('/api/community/follow/:userId', authMiddleware, async (req, res) => {
+  try {
+    await pool.execute(
+      'DELETE FROM community_follows WHERE follower_id = ? AND following_id = ?',
+      [req.user.id, req.params.userId]
+    )
+    res.json({ success: true, followed: false })
+  } catch (error) {
+    console.error('取消关注失败:', error)
+    res.status(500).json({ success: false, message: '取消关注失败' })
+  }
+})
+
+app.get('/api/community/follows', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT following_id FROM community_follows WHERE follower_id = ?',
+      [req.user.id]
+    )
+    res.json({ success: true, data: rows.map(r => r.following_id) })
+  } catch (error) {
+    console.error('获取关注列表失败:', error)
+    res.status(500).json({ success: false, message: '获取关注列表失败' })
+  }
+})
+
+// ── 社区草稿 ──────────────────────────────────────────────
+app.get('/api/community/drafts', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM community_drafts WHERE user_id = ? ORDER BY saved_at DESC',
+      [req.user.id]
+    )
+    const drafts = rows.map(r => ({
+      id: r.id, title: r.title, content: r.content,
+      tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [],
+      savedAt: r.saved_at, createdAt: r.created_at
+    }))
+    res.json({ success: true, data: drafts })
+  } catch (error) {
+    console.error('获取草稿列表失败:', error)
+    res.status(500).json({ success: false, message: '获取草稿列表失败' })
+  }
+})
+
+app.post('/api/community/drafts', authMiddleware, async (req, res) => {
+  try {
+    const { title, content, tags } = req.body
+    const id = randomUUID()
+    await pool.execute(
+      'INSERT INTO community_drafts (id, user_id, title, content, tags) VALUES (?, ?, ?, ?, ?)',
+      [id, req.user.id, title || '', content || '', tags ? JSON.stringify(tags) : null]
+    )
+    res.status(201).json({ success: true, draft: { id, title, content, tags: tags || [] } })
+  } catch (error) {
+    console.error('保存草稿失败:', error)
+    res.status(500).json({ success: false, message: '保存草稿失败' })
+  }
+})
+
+app.patch('/api/community/drafts/:id', authMiddleware, async (req, res) => {
+  try {
+    const { title, content, tags } = req.body
+    const [rows] = await pool.execute('SELECT id FROM community_drafts WHERE id = ? AND user_id = ?', [req.params.id, req.user.id])
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '草稿不存在' })
+    }
+    await pool.execute(
+      'UPDATE community_drafts SET title = ?, content = ?, tags = ?, saved_at = NOW() WHERE id = ? AND user_id = ?',
+      [title || '', content || '', tags ? JSON.stringify(tags) : null, req.params.id, req.user.id]
+    )
+    res.json({ success: true })
+  } catch (error) {
+    console.error('更新草稿失败:', error)
+    res.status(500).json({ success: false, message: '更新草稿失败' })
+  }
+})
+
+app.delete('/api/community/drafts/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM community_drafts WHERE id = ? AND user_id = ?', [req.params.id, req.user.id])
+    res.json({ success: true })
+  } catch (error) {
+    console.error('删除草稿失败:', error)
+    res.status(500).json({ success: false, message: '删除草稿失败' })
   }
 })
 
@@ -3467,12 +4413,13 @@ app.get('/api/admin/users', adminAuthMiddleware, requirePermission('user:list'),
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '20', 10), 1), 100)
     const keyword = `%${String(req.query.keyword || '').trim()}%`
     const offset = (page - 1) * pageSize
+    const orderBy = buildAdminUserOrderBy(req.query.sortBy, req.query.sortDir)
 
     const where = req.query.keyword ? 'WHERE username LIKE ? OR email LIKE ? OR display_name LIKE ?' : ''
     const params = req.query.keyword ? [keyword, keyword, keyword] : []
     const [rows] = await pool.execute(
-      `SELECT id, username, email, display_name, plain_password, subscription_tier, subscription_expiry, email_verified, is_active, created_at, last_login
-       FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      `SELECT id, username, email, display_name, avatar_url, pending_avatar_url, avatar_status, avatar_submitted_at, avatar_reviewed_at, avatar_reject_reason, plain_password, subscription_tier, subscription_expiry, email_verified, is_active, created_at, last_login
+       FROM users ${where} ${orderBy} LIMIT ? OFFSET ?`,
       [...params, pageSize, offset]
     )
     const [countRows] = await pool.execute(
@@ -3484,6 +4431,54 @@ app.get('/api/admin/users', adminAuthMiddleware, requirePermission('user:list'),
   } catch (error) {
     console.error('获取用户列表失败:', error)
     res.status(500).json({ success: false, message: '获取用户列表失败' })
+  }
+})
+
+app.patch('/api/admin/users/:id/avatar', adminAuthMiddleware, requirePermission('user:update'), async (req, res) => {
+  try {
+    const { action, reason } = req.body || {}
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action 必须是 approve 或 reject' })
+    }
+
+    const [users] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.params.id])
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+    const user = users[0]
+    if (!user.pending_avatar_url || user.avatar_status !== 'pending') {
+      return res.status(400).json({ success: false, message: '该用户没有待审核头像' })
+    }
+
+    if (action === 'approve') {
+      await pool.execute(
+        `UPDATE users
+         SET avatar_url = ?,
+             pending_avatar_url = NULL,
+             avatar_status = 'approved',
+             avatar_reviewed_at = NOW(),
+             avatar_reject_reason = NULL
+         WHERE id = ?`,
+        [user.pending_avatar_url, req.params.id]
+      )
+    } else {
+      await pool.execute(
+        `UPDATE users
+         SET pending_avatar_url = NULL,
+             avatar_status = 'rejected',
+             avatar_reviewed_at = NOW(),
+             avatar_reject_reason = ?
+         WHERE id = ?`,
+        [String(reason || '').trim() || '头像未通过后台审核', req.params.id]
+      )
+    }
+
+    const [updated] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.params.id])
+    await auditLog(req, `user.avatar.${action}`, 'user', req.params.id, formatUser(user), formatUser(updated[0]))
+    res.json({ success: true, user: formatUser(updated[0]) })
+  } catch (error) {
+    console.error('审核用户头像失败:', error)
+    res.status(500).json({ success: false, message: '审核用户头像失败' })
   }
 })
 
@@ -4245,7 +5240,7 @@ async function buildHealthPayload() {
       name,
       { configured: Boolean(provider.apiKey), model: provider.defaultModel }
     ])),
-    tts: { configured: Boolean(TTS_CONFIG.dashscopeApiKey), model: TTS_CONFIG.model },
+    tts: { configured: Boolean(TTS_CONFIG.apiKey), model: TTS_CONFIG.model },
     hadmin_internal: { enabled: Boolean(HADMIN_INTERNAL_TOKEN) }
   }
 

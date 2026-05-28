@@ -1,0 +1,5 @@
+{
+  "apiKey": "tp-cbeqvyzd0yo7lpnjuerk5x3nadwk9cmykgdk259g8hnpp8ro",
+  "model": "mimo-v2.5-tts",
+  "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions"
+}

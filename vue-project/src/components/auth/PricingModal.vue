@@ -13,6 +13,25 @@
           <p class="text-gray-500">个人订阅 · 团队席位 · 企业定制,因材施教</p>
         </div>
 
+        <div
+          v-if="orderNotice"
+          :class="[
+            'mb-6 rounded-xl border px-5 py-4 text-sm flex items-start gap-3',
+            orderNoticeType === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-700'
+          ]"
+          data-testid="subscription-order-notice"
+        >
+          <i :class="orderNoticeType === 'success' ? 'fas fa-circle-check mt-0.5' : 'fas fa-circle-exclamation mt-0.5'"></i>
+          <div>
+            <p class="font-bold">{{ orderNoticeTitle }}</p>
+            <p class="mt-1">{{ orderNotice }}</p>
+          </div>
+        </div>
+
+        <OrderHistory v-if="showOrderHistory" @close="showOrderHistory = false" />
+
         <!-- C 端 3 档 -->
         <div class="mb-4">
           <div class="flex items-center mb-4">
@@ -71,11 +90,11 @@
             </ul>
             <button
               @click="upgrade('pro')"
-              :disabled="proDisabled"
+              :disabled="proDisabled || Boolean(processingTier)"
               class="w-full py-3 rounded-lg font-bold transition-colors shadow-lg"
               :class="proBtnClass"
             >
-              {{ proBtnLabel }}
+              {{ processingTier === 'pro' ? '提交中...' : proBtnLabel }}
             </button>
           </div>
 
@@ -101,11 +120,11 @@
             </ul>
             <button
               @click="upgrade('master')"
-              :disabled="masterDisabled"
+              :disabled="masterDisabled || Boolean(processingTier)"
               class="w-full py-3 rounded-lg font-bold transition-colors shadow-md"
               :class="masterBtnClass"
             >
-              {{ masterBtnLabel }}
+              {{ processingTier === 'master' ? '提交中...' : masterBtnLabel }}
             </button>
           </div>
         </div>
@@ -149,12 +168,12 @@
             </ul>
             <button
               @click="upgrade('team')"
-              :disabled="teamDisabled"
+              :disabled="teamDisabled || Boolean(processingTier)"
               class="w-full py-3 rounded-lg font-bold transition-colors shadow-md"
               :class="teamBtnClass"
               data-testid="upgrade-team-btn"
             >
-              {{ teamBtnLabel }}
+              {{ processingTier === 'team' ? '提交中...' : teamBtnLabel }}
             </button>
           </div>
 
@@ -195,7 +214,15 @@
         </div>
 
         <p class="text-center text-xs text-gray-400 mt-8">
-          * 这是一个演示项目,点击个人方案按钮将模拟支付过程并直接升级;企业方案将打开预约表单
+          * 会员方案提交后会生成后台确认订单,管理员确认后自动开通对应会员;企业方案将打开预约表单
+        </p>
+        <p class="text-center mt-3">
+          <button
+            @click="showOrderHistory = !showOrderHistory"
+            class="text-sm text-primary hover:text-primary/80 underline transition-colors"
+          >
+            {{ showOrderHistory ? '收起订单' : '查看我的订单' }}
+          </button>
         </p>
       </div>
     </div>
@@ -213,11 +240,17 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore, type SubscriptionTier } from '@/stores/auth'
 import EnterpriseContactModal from '@/components/auth/EnterpriseContactModal.vue'
+import OrderHistory from '@/components/auth/OrderHistory.vue'
 
 const authStore = useAuthStore()
 const { showPricingModal, user } = storeToRefs(authStore)
 
 const enterpriseModalOpen = ref(false)
+const showOrderHistory = ref(false)
+const processingTier = ref<SubscriptionTier | null>(null)
+const orderNotice = ref('')
+const orderNoticeTitle = ref('')
+const orderNoticeType = ref<'success' | 'error'>('success')
 
 const tierOrder: Record<string, number> = { free: 0, pro: 1, team: 2, master: 3 }
 const currentTierOrder = computed(() => tierOrder[user.value?.subscription?.tier || 'free'] || 0)
@@ -276,20 +309,21 @@ const tierLabel: Record<string, string> = {
 }
 
 const upgrade = async (tier: SubscriptionTier) => {
-  const btn = document.activeElement as HTMLButtonElement
-  const originalText = btn.innerText
-  btn.innerText = '支付中...'
-  btn.disabled = true
-
+  processingTier.value = tier
+  orderNotice.value = ''
+  orderNoticeTitle.value = ''
   try {
-    await authStore.upgradeSubscription(tier)
-    alert(`恭喜!您已成功升级为 ${tierLabel[tier] || tier}!`)
-    showPricingModal.value = false
+    const result = await authStore.upgradeSubscription(tier)
+    orderNoticeType.value = 'success'
+    orderNoticeTitle.value = result.reused ? '已有待确认订单' : '订单已提交'
+    orderNotice.value = `订单号 ${result.order.orderNo}, ${tierLabel[tier] || tier}会员 ${result.order.durationDays} 天, 金额 ¥${result.order.amountYuan}。后台确认后会员会自动生效。`
+    showOrderHistory.value = true
   } catch (error: any) {
-    alert(error?.message || '升级失败,请稍后再试')
+    orderNoticeType.value = 'error'
+    orderNoticeTitle.value = '订单提交失败'
+    orderNotice.value = error?.message || '订单提交失败,请稍后再试'
   } finally {
-    btn.innerText = originalText
-    btn.disabled = false
+    processingTier.value = null
   }
 }
 </script>

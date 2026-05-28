@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会员订单 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>会员订单</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <form id="filterForm" class="form-inline" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>状态：</label>
+                                <select id="filterStatus" class="form-control">
+                                    <option value="">全部</option>
+                                    <option value="pending">待确认</option>
+                                    <option value="paid">已开通</option>
+                                    <option value="canceled">已取消</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>搜索：</label>
+                                <input id="filterKeyword" type="text" class="form-control" placeholder="订单号 / 用户 / 邮箱">
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> 查询</button>
+                            <button type="button" id="resetBtn" class="btn btn-default">重置</button>
+                        </form>
+
+                        <div id="ordersError" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>订单号</th>
+                                        <th>用户</th>
+                                        <th>套餐</th>
+                                        <th>金额</th>
+                                        <th>状态</th>
+                                        <th>提交时间</th>
+                                        <th>处理信息</th>
+                                        <th style="width: 180px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ordersBody">
+                                    <tr><td colspan="8" class="text-center text-muted">加载中…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/jquery.min.js?v=2.1.4"></script>
+    <script src="js/bootstrap.min.js?v=3.3.6"></script>
+    <script src="js/plugins/layer/layer.min.js"></script>
+
+    <script>
+    (function () {
+        var state = {
+            page: 1,
+            pageSize: 20,
+            status: '',
+            keyword: ''
+        };
+
+        function statusLabel(status) {
+            if (status === 'paid') return '<span class="label label-primary">已开通</span>';
+            if (status === 'canceled') return '<span class="label label-default">已取消</span>';
+            return '<span class="label label-warning">待确认</span>';
+        }
+
+        function renderUser(order) {
+            var user = order.user || {};
+            var name = user.displayName || user.username || '-';
+            var email = user.email || '';
+            return AdminAPI.escapeHtml(name) + '<br><small class="text-muted">' + AdminAPI.escapeHtml(email) + '</small>';
+        }
+
+        function renderHandled(order) {
+            if (order.status === 'pending') {
+                return '<span class="text-muted">等待后台确认</span>';
+            }
+            var time = order.status === 'paid' ? order.paidAt : order.canceledAt;
+            var name = order.handledByName || '管理员';
+            return AdminAPI.escapeHtml(name) + '<br><small class="text-muted">' + AdminAPI.escapeHtml(AdminAPI.formatDate(time)) + '</small>';
+        }
+
+        function renderActions(order) {
+            if (order.status !== 'pending') {
+                return '<span class="text-muted">已处理</span>';
+            }
+            return '<button class="btn btn-xs btn-primary btn-paid"><i class="fa fa-check"></i> 确认开通</button> ' +
+                '<button class="btn btn-xs btn-default btn-cancel"><i class="fa fa-ban"></i> 取消</button>';
+        }
+
+        function renderRow(order) {
+            return '<tr data-id="' + AdminAPI.escapeHtml(order.id) + '">' +
+                '<td><strong>' + AdminAPI.escapeHtml(order.orderNo || '-') + '</strong></td>' +
+                '<td>' + renderUser(order) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(order.tierLabel || order.tier || '-') + '<br><small class="text-muted">' + Number(order.durationDays || 0) + ' 天</small></td>' +
+                '<td>¥' + AdminAPI.escapeHtml(order.amountYuan || '0.00') + '</td>' +
+                '<td>' + statusLabel(order.status) + '</td>' +
+                '<td>' + AdminAPI.escapeHtml(AdminAPI.formatDate(order.createdAt)) + '</td>' +
+                '<td>' + renderHandled(order) + '</td>' +
+                '<td>' + renderActions(order) + '</td>' +
+                '</tr>';
+        }
+
+        function load() {
+            var query = AdminAPI.qs({
+                page: state.page,
+                pageSize: state.pageSize,
+                status: state.status,
+                keyword: state.keyword
+            });
+            AdminAPI.apiFetch('/api/admin/subscription-orders?' + query)
+                .then(function (result) {
+                    var rows = result.data || [];
+                    var body = document.getElementById('ordersBody');
+                    if (rows.length === 0) {
+                        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted">暂无订单</td></tr>';
+                    } else {
+                        body.innerHTML = rows.map(renderRow).join('');
+                    }
+                    AdminAPI.renderPagination('#pagination', result.pagination, function (p) {
+                        state.page = p;
+                        load();
+                    });
+                    AdminAPI.showError('#ordersError', '');
+                })
+                .catch(function (err) {
+                    AdminAPI.showError('#ordersError', '加载会员订单失败：' + (err && err.message ? err.message : err));
+                });
+        }
+
+        function updateOrder(id, status, note) {
+            AdminAPI.apiFetch('/api/admin/subscription-orders/' + encodeURIComponent(id), {
+                method: 'PATCH',
+                body: { status: status, note: note || '' }
+            }).then(function () {
+                AdminAPI.notify(status === 'paid' ? '会员已开通' : '订单已取消', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('处理失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        function confirmPaid(id) {
+            AdminAPI.confirmAction('确认该订单已收款并立即开通会员吗？').then(function (ok) {
+                if (!ok) return;
+                updateOrder(id, 'paid', '后台确认收款并开通会员');
+            });
+        }
+
+        function cancelOrder(id) {
+            AdminAPI.confirmAction('确定取消该会员订单吗？取消后不会发放会员。').then(function (ok) {
+                if (!ok) return;
+                updateOrder(id, 'canceled', '后台取消订单');
+            });
+        }
+
+        document.getElementById('filterForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            state.status = document.getElementById('filterStatus').value;
+            state.keyword = document.getElementById('filterKeyword').value.trim();
+            state.page = 1;
+            load();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', function () {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterKeyword').value = '';
+            state.status = '';
+            state.keyword = '';
+            state.page = 1;
+            load();
+        });
+
+        jQuery('#ordersBody').on('click', '.btn-paid', function () {
+            confirmPaid(jQuery(this).closest('tr').data('id'));
+        });
+
+        jQuery('#ordersBody').on('click', '.btn-cancel', function () {
+            cancelOrder(jQuery(this).closest('tr').data('id'));
+        });
+
+        load();
+    })();
+    </script>
+</body>
+
+</html>

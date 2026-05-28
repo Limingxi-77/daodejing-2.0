@@ -341,6 +341,12 @@ import {
   reportCommunityContent,
   setCommunityBookmark,
   setCommunityLike,
+  followUser,
+  unfollowUser,
+  fetchFollows,
+  fetchDrafts,
+  saveDraft as saveDraftApi,
+  deleteDraftApi,
   type CommunityPost
 } from '@/services/communityService'
 
@@ -611,17 +617,37 @@ const toggleBookmark = async (id: string | number) => {
 
 // 交互逻辑：关注
 const isFollowed = (user: string) => followedUsers.value.includes(user)
-const toggleFollow = (user: string) => {
+const toggleFollow = async (user: string) => {
   const index = followedUsers.value.indexOf(user)
-  
-  if (index > -1) {
+  const wasFollowed = index > -1
+
+  // 乐观更新
+  if (wasFollowed) {
     followedUsers.value.splice(index, 1)
-    showNotification(`已取消关注 ${user}`, 'info')
   } else {
     followedUsers.value.push(user)
-    showNotification(`已关注 ${user}`)
   }
   localStorage.setItem('communityFollowedUsers', JSON.stringify(followedUsers.value))
+
+  try {
+    if (wasFollowed) {
+      await unfollowUser(user)
+      showNotification(`已取消关注 ${user}`, 'info')
+    } else {
+      await followUser(user)
+      showNotification(`已关注 ${user}`)
+    }
+  } catch {
+    // 回滚
+    if (wasFollowed) {
+      followedUsers.value.push(user)
+    } else {
+      const i = followedUsers.value.indexOf(user)
+      if (i > -1) followedUsers.value.splice(i, 1)
+    }
+    localStorage.setItem('communityFollowedUsers', JSON.stringify(followedUsers.value))
+    showNotification('操作失败，请稍后再试')
+  }
 }
 
 // 交互逻辑：分享
@@ -664,12 +690,12 @@ const submitReport = async () => {
 const toggleDraftBox = () => {
   showDraftBox.value = !showDraftBox.value
 }
-const saveDraft = () => {
+const saveDraft = async () => {
   if (!newPost.value.title && !newPost.value.content) {
     showNotification('请输入内容后再保存', 'info')
     return
   }
-  
+
   const draft: Draft = {
     id: Date.now().toString(),
     title: newPost.value.title,
@@ -677,10 +703,22 @@ const saveDraft = () => {
     tags: newPost.value.tags,
     savedAt: new Date().toISOString()
   }
-  
+
+  // 乐观更新本地
   drafts.value.unshift(draft)
   localStorage.setItem('communityDrafts', JSON.stringify(drafts.value))
   showNotification('草稿保存成功')
+
+  // 同步到后端
+  try {
+    const res = await saveDraftApi({ title: draft.title, content: draft.content, tags: draft.tags ? [draft.tags] : [] })
+    if (res.draft?.id) {
+      draft.id = res.draft.id
+      localStorage.setItem('communityDrafts', JSON.stringify(drafts.value))
+    }
+  } catch {
+    // 本地已保存，不影响使用
+  }
 }
 const loadDraft = (draft: Draft) => {
   newPost.value = {
@@ -694,6 +732,7 @@ const loadDraft = (draft: Draft) => {
 const deleteDraft = (id: string) => {
   drafts.value = drafts.value.filter(d => d.id !== id)
   localStorage.setItem('communityDrafts', JSON.stringify(drafts.value))
+  deleteDraftApi(id).catch(() => {})
 }
 const clearAllDrafts = () => {
   if (confirm('确定要清空所有草稿吗？')) {
@@ -796,7 +835,7 @@ const handleGlobalClick = (e: any) => {
 }
 
 // 生命周期钩子
-onMounted(() => {
+onMounted(async () => {
   // 加载本地存储数据
   try {
     likes.value = JSON.parse(localStorage.getItem('communityLikes') || '[]')
@@ -806,6 +845,23 @@ onMounted(() => {
   } catch (e) {
     console.error('Failed to load local storage data', e)
   }
+
+  // 从后端同步关注和草稿数据
+  try {
+    const followsRes = await fetchFollows()
+    if (followsRes.success && Array.isArray(followsRes.data)) {
+      followedUsers.value = followsRes.data
+      localStorage.setItem('communityFollowedUsers', JSON.stringify(followsRes.data))
+    }
+  } catch {}
+
+  try {
+    const draftsRes = await fetchDrafts()
+    if (draftsRes.success && Array.isArray(draftsRes.data)) {
+      drafts.value = draftsRes.data
+      localStorage.setItem('communityDrafts', JSON.stringify(draftsRes.data))
+    }
+  } catch {}
 
   loadPostsFromBackend()
 

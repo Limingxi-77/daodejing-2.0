@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画作生成配置 - 道德经平台</title>
+
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="css/bootstrap.min.css?v=3.3.6" rel="stylesheet">
+    <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/style.css?v=4.1.0" rel="stylesheet">
+
+    <script src="js/admin-api.js"></script>
+    <script>AdminAPI.requireAuth();</script>
+
+    <style>
+        .config-section { margin-bottom: 24px; }
+        .config-section h5 { margin-bottom: 12px; color: #333; font-weight: 600; }
+        .status-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .status-badge.ok { background: #e7f5ee; color: #1c7c4d; }
+        .status-badge.warn { background: #fff8e1; color: #e6a817; }
+        .status-badge.err { background: #fdecec; color: #a94442; }
+        .key-display { font-family: monospace; font-size: 13px; color: #555; background: #f5f5f5; padding: 6px 10px; border-radius: 4px; display: inline-block; }
+        .preview-card { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 6px; padding: 16px; margin-top: 12px; }
+        .preview-card .label { font-size: 12px; color: #999; margin-bottom: 2px; }
+        .preview-card .value { font-size: 14px; color: #333; word-break: break-all; }
+        .model-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .model-chip { padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .model-chip:hover { border-color: #1ab394; color: #1ab394; }
+        .model-chip.active { background: #1ab394; color: #fff; border-color: #1ab394; }
+    </style>
+</head>
+
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-paint-brush"></i> 画作生成配置（道境数字艺术画廊）</h5>
+                        <div class="ibox-tools">
+                            <button id="btnReload" class="btn btn-default btn-xs" onclick="loadConfig()"><i class="fa fa-refresh"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="alert alert-info" style="margin-bottom: 14px;">
+                            <i class="fa fa-info-circle"></i>
+                            配置道境数字艺术画廊的文生图 API。当前使用阿里通义万相（DashScope）。
+                            保存后立即生效，无需重启后端。API Key 脱敏显示，重新输入可覆盖。
+                        </div>
+
+                        <div id="globalError" class="alert alert-danger" style="display:none;"></div>
+                        <div id="globalSuccess" class="alert alert-success" style="display:none;"></div>
+
+                        <!-- 当前状态 -->
+                        <div class="config-section">
+                            <h5><i class="fa fa-heartbeat"></i> 当前状态</h5>
+                            <div id="statusArea">加载中…</div>
+                        </div>
+
+                        <hr>
+
+                        <!-- API Key -->
+                        <div class="config-section">
+                            <h5><i class="fa fa-key"></i> API Key</h5>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="password" id="inputApiKey" class="form-control" placeholder="留空则不修改，输入新值则覆盖">
+                                    <span class="input-group-btn">
+                                        <button class="btn btn-default" type="button" onclick="toggleKeyVisibility()">
+                                            <i id="eyeIcon" class="fa fa-eye"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                                <p class="help-block">当前值：<span id="currentKeyDisplay" class="key-display">加载中…</span></p>
+                            </div>
+                        </div>
+
+                        <!-- 模型选择 -->
+                        <div class="config-section">
+                            <h5><i class="fa fa-cube"></i> 模型</h5>
+                            <div class="form-group">
+                                <input type="text" id="inputModel" class="form-control" placeholder="如 qwen-image-2.0-pro">
+                                <div class="model-grid" id="modelGrid">
+                                    <span class="model-chip" data-model="qwen-image-2.0-pro" onclick="selectModel(this)">qwen-image-2.0-pro（推荐）</span>
+                                    <span class="model-chip" data-model="qwen-image-2.0" onclick="selectModel(this)">qwen-image-2.0（标准）</span>
+                                </div>
+                                <p class="help-block" style="margin-top:8px;">
+                                    <i class="fa fa-info-circle"></i>
+                                    以上模型均有免费额度。<strong>推荐 qwen-image-2.0-pro</strong>（质量最高，100次免费）。
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- API 端点 -->
+                        <div class="config-section">
+                            <h5><i class="fa fa-link"></i> API 端点（高级）</h5>
+                            <div class="form-group">
+                                <label>提交任务 URL</label>
+                                <input type="text" id="inputSubmitUrl" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>查询任务 URL</label>
+                                <input type="text" id="inputTaskUrl" class="form-control">
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="form-group">
+                            <button id="btnSave" class="btn btn-primary btn-lg" onclick="saveConfig()">
+                                <i class="fa fa-save"></i> 保存配置
+                            </button>
+                            <button class="btn btn-default btn-lg" onclick="loadConfig()" style="margin-left: 8px;">
+                                <i class="fa fa-undo"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var currentConfig = null;
+
+        function showError(msg) {
+            var el = document.getElementById('globalError');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('globalSuccess').style.display = 'none';
+        }
+
+        function showSuccess(msg) {
+            var el = document.getElementById('globalSuccess');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('globalError').style.display = 'none';
+        }
+
+        function clearMessages() {
+            document.getElementById('globalError').style.display = 'none';
+            document.getElementById('globalSuccess').style.display = 'none';
+        }
+
+        function loadConfig() {
+            clearMessages();
+            document.getElementById('statusArea').innerHTML = '<i class="fa fa-spinner fa-spin"></i> 加载中…';
+
+            AdminAPI.apiFetch('/api/admin/art-config')
+                .then(function (data) {
+                    currentConfig = data.config;
+                    renderStatus(data.config);
+                    renderForm(data.config);
+                })
+                .catch(function (err) {
+                    showError('加载配置失败：' + (err.message || '未知错误'));
+                    document.getElementById('statusArea').innerHTML = '<span class="text-danger">加载失败</span>';
+                });
+        }
+
+        function renderStatus(cfg) {
+            var html = '';
+            // API Key 状态
+            if (cfg.apiKeySet) {
+                html += '<span class="status-badge ok"><i class="fa fa-check-circle"></i> API Key 已配置</span> ';
+            } else {
+                html += '<span class="status-badge err"><i class="fa fa-times-circle"></i> API Key 未配置</span> ';
+            }
+            // 模型
+            html += '<span class="status-badge ok" style="margin-left:8px;"><i class="fa fa-cube"></i> 模型：' + escapeHtml(cfg.model) + '</span>';
+
+            document.getElementById('statusArea').innerHTML = html;
+        }
+
+        function renderForm(cfg) {
+            document.getElementById('currentKeyDisplay').textContent = cfg.apiKey || '（未设置）';
+            document.getElementById('inputApiKey').value = '';
+            document.getElementById('inputModel').value = cfg.model || '';
+            document.getElementById('inputSubmitUrl').value = cfg.submitUrl || '';
+            document.getElementById('inputTaskUrl').value = cfg.taskUrl || '';
+
+            // 高亮当前模型 chip
+            var chips = document.querySelectorAll('.model-chip');
+            chips.forEach(function (chip) {
+                chip.classList.toggle('active', chip.getAttribute('data-model') === cfg.model);
+            });
+        }
+
+        function selectModel(el) {
+            var model = el.getAttribute('data-model');
+            document.getElementById('inputModel').value = model;
+            var chips = document.querySelectorAll('.model-chip');
+            chips.forEach(function (c) { c.classList.remove('active'); });
+            el.classList.add('active');
+        }
+
+        function toggleKeyVisibility() {
+            var input = document.getElementById('inputApiKey');
+            var icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa fa-eye';
+            }
+        }
+
+        function saveConfig() {
+            clearMessages();
+            var btn = document.getElementById('btnSave');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 保存中…';
+
+            var body = {};
+            var apiKey = document.getElementById('inputApiKey').value.trim();
+            var model = document.getElementById('inputModel').value.trim();
+            var submitUrl = document.getElementById('inputSubmitUrl').value.trim();
+            var taskUrl = document.getElementById('inputTaskUrl').value.trim();
+
+            // apiKey 留空表示不修改
+            if (apiKey) body.apiKey = apiKey;
+            if (model) body.model = model;
+            if (submitUrl) body.submitUrl = submitUrl;
+            if (taskUrl) body.taskUrl = taskUrl;
+
+            if (!apiKey && !model && !submitUrl && !taskUrl) {
+                showError('请至少填写一项配置');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-save"></i> 保存配置';
+                return;
+            }
+
+            AdminAPI.apiFetch('/api/admin/art-config', { method: 'PUT', body: body })
+                .then(function (data) {
+                    showSuccess('保存成功！配置已立即生效。');
+                    currentConfig = data.config;
+                    renderStatus(data.config);
+                    renderForm(data.config);
+                })
+                .catch(function (err) {
+                    showError('保存失败：' + (err.message || '未知错误'));
+                })
+                .finally(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa fa-save"></i> 保存配置';
+                });
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str || ''));
+            return div.innerHTML;
+        }
+
+        // 初始加载
+        loadConfig();
+    </script>
+</body>
+
+</html>

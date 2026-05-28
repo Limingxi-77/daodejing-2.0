@@ -11,6 +11,24 @@
     <link href="css/font-awesome.min.css?v=4.4.0" rel="stylesheet">
     <link href="css/animate.css" rel="stylesheet">
     <link href="css/style.css?v=4.1.0" rel="stylesheet">
+    <style>
+        .user-avatar-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #1ab394;
+            color: #fff;
+            font-weight: 700;
+            border: 1px solid #e5e6e7;
+        }
+        .avatar-cell {
+            min-width: 78px;
+        }
+    </style>
 
     <script src="js/admin-api.js"></script>
     <script>AdminAPI.requireAuth();</script>
@@ -35,6 +53,24 @@
                                     <button type="button" id="resetBtn" class="btn btn-default">重置</button>
                                 </form>
                             </div>
+                            <div class="col-sm-6 text-right">
+                                <form id="sortForm" class="form-inline">
+                                    <div class="form-group">
+                                        <label for="sortBy" class="control-label">排序</label>
+                                        <select id="sortBy" class="form-control">
+                                            <option value="created_at">注册时间</option>
+                                            <option value="membership_duration">会员时长</option>
+                                            <option value="membership_tier">会员等级</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <select id="sortDir" class="form-control">
+                                            <option value="asc">从小到大</option>
+                                            <option value="desc" selected>从大到小</option>
+                                        </select>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
 
                         <div id="usersError" class="alert alert-danger" style="display:none;"></div>
@@ -44,6 +80,7 @@
                                 <thead>
                                     <tr>
                                         <th>用户名</th>
+                                        <th>头像</th>
                                         <th>邮箱</th>
                                         <th>显示名</th>
                                         <th>密码</th>
@@ -55,7 +92,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="usersBody">
-                                    <tr><td colspan="9" class="text-center text-muted">加载中…</td></tr>
+                                    <tr><td colspan="10" class="text-center text-muted">加载中…</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -75,7 +112,9 @@
         var state = {
             page: 1,
             pageSize: 20,
-            keyword: ''
+            keyword: '',
+            sortBy: 'created_at',
+            sortDir: 'desc'
         };
         var rowCache = {};
 
@@ -91,6 +130,7 @@
         var TIER_LABELS = {
             free: '布衣',
             pro: '居士',
+            team: '团队',
             master: '宗师',
             basic: 'basic',
             premium: 'premium',
@@ -99,6 +139,7 @@
         var TIER_CLASSES = {
             free: 'label-default',
             pro: 'label-primary',
+            team: 'label-info',
             master: 'label-warning',
             basic: 'label-info',
             premium: 'label-primary',
@@ -111,6 +152,29 @@
             var cls = TIER_CLASSES[tier] || 'label-default';
             return '<span class="label ' + cls + '">' + AdminAPI.escapeHtml(label) +
                 '</span><small class="text-muted" style="margin-left:6px;">' + AdminAPI.escapeHtml(tier) + '</small>';
+        }
+
+        function renderAvatarThumb(url, fallback, extraClass) {
+            if (url) {
+                return '<img src="' + AdminAPI.escapeHtml(url) + '" alt="头像" class="' + (extraClass || 'user-avatar-thumb') + '">';
+            }
+            var text = (fallback || '用').slice(0, 1).toUpperCase();
+            return '<span class="' + (extraClass || 'user-avatar-thumb') + ' user-avatar-fallback">' + AdminAPI.escapeHtml(text) + '</span>';
+        }
+
+        function renderAvatarCell(u) {
+            var html = '<div class="avatar-cell">' + renderAvatarThumb(u.avatar_url, u.display_name || u.username) + '</div>';
+            if (u.avatar_status === 'pending' && u.pending_avatar_url) {
+                html += '<div style="margin-top:6px;"><span class="label label-warning">待审核</span></div>' +
+                    '<button class="btn btn-xs btn-success btn-review-avatar" style="margin-top:6px;"><i class="fa fa-image"></i> 审核</button>';
+            } else if (u.avatar_status === 'rejected') {
+                html += '<div style="margin-top:6px;"><span class="label label-danger">未通过</span></div>';
+            } else if (u.avatar_url) {
+                html += '<div style="margin-top:6px;"><span class="label label-primary">已启用</span></div>';
+            } else {
+                html += '<div style="margin-top:6px;"><span class="text-muted">未上传</span></div>';
+            }
+            return html;
         }
 
         function formatRemaining(expiryIso) {
@@ -153,6 +217,7 @@
 
             return '<tr data-id="' + AdminAPI.escapeHtml(u.id) + '">' +
                 '<td>' + AdminAPI.escapeHtml(u.username || '-') + '</td>' +
+                '<td>' + renderAvatarCell(u) + '</td>' +
                 '<td>' + AdminAPI.escapeHtml(u.email || '-') + '</td>' +
                 '<td>' + AdminAPI.escapeHtml(u.display_name || '-') + '</td>' +
                 '<td>' + renderPasswordCell(u.password) + '</td>' +
@@ -172,7 +237,9 @@
             var query = AdminAPI.qs({
                 page: state.page,
                 pageSize: state.pageSize,
-                keyword: state.keyword
+                keyword: state.keyword,
+                sortBy: state.sortBy,
+                sortDir: state.sortDir
             });
             AdminAPI.apiFetch('/api/admin/users?' + query)
                 .then(function (result) {
@@ -180,7 +247,7 @@
                     rowCache = {};
                     var body = document.getElementById('usersBody');
                     if (rows.length === 0) {
-                        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>';
+                        body.innerHTML = '<tr><td colspan="10" class="text-center text-muted">暂无数据</td></tr>';
                     } else {
                         body.innerHTML = rows.map(renderRow).join('');
                     }
@@ -366,6 +433,47 @@
             });
         }
 
+        function reviewAvatar(userId, action, reason, layerIndex) {
+            AdminAPI.apiFetch('/api/admin/users/' + encodeURIComponent(userId) + '/avatar', {
+                method: 'PATCH',
+                body: { action: action, reason: reason || '' }
+            }).then(function () {
+                if (layerIndex) layer.close(layerIndex);
+                AdminAPI.notify(action === 'approve' ? '头像已通过' : '头像已驳回', 'success');
+                load();
+            }).catch(function (err) {
+                AdminAPI.notify('审核失败：' + (err && err.message ? err.message : err), 'error');
+            });
+        }
+
+        function openAvatarReview(userId) {
+            var u = rowCache[userId];
+            if (!u || !u.pending_avatar_url) {
+                AdminAPI.notify('该用户没有待审核头像', 'error');
+                return;
+            }
+            var html = '<div style="padding:18px;text-align:center;">' +
+                '<p><strong>' + AdminAPI.escapeHtml(u.display_name || u.username || '') + '</strong> 提交的新头像</p>' +
+                '<img src="' + AdminAPI.escapeHtml(u.pending_avatar_url) + '" alt="待审核头像" style="width:160px;height:160px;border-radius:8px;object-fit:cover;border:1px solid #e5e5e5;">' +
+                '<textarea id="avatarRejectReason" class="form-control" rows="3" style="margin-top:15px;" placeholder="驳回原因（驳回时填写，可选）"></textarea>' +
+                '</div>';
+            layer.open({
+                type: 1,
+                title: '审核用户头像 - ' + AdminAPI.escapeHtml(u.username || ''),
+                area: ['420px', '420px'],
+                content: html,
+                btn: ['通过', '驳回', '取消'],
+                yes: function (idx) {
+                    reviewAvatar(userId, 'approve', '', idx);
+                },
+                btn2: function (idx) {
+                    var reason = (document.getElementById('avatarRejectReason').value || '').trim();
+                    reviewAvatar(userId, 'reject', reason, idx);
+                    return false;
+                }
+            });
+        }
+
         function toggleStatus(userId, $row) {
             var u = rowCache[userId] || {};
             var nextActive = !u.is_active;
@@ -394,7 +502,17 @@
             });
             jQuery('#resetBtn').on('click', function () {
                 jQuery('#searchKeyword').val('');
+                jQuery('#sortBy').val('created_at');
+                jQuery('#sortDir').val('desc');
                 state.keyword = '';
+                state.sortBy = 'created_at';
+                state.sortDir = 'desc';
+                state.page = 1;
+                load();
+            });
+            jQuery('#sortBy, #sortDir').on('change', function () {
+                state.sortBy = jQuery('#sortBy').val();
+                state.sortDir = jQuery('#sortDir').val();
                 state.page = 1;
                 load();
             });
@@ -405,6 +523,10 @@
             jQuery('#usersBody').on('click', '.btn-reset-pwd', function () {
                 var id = jQuery(this).closest('tr').data('id');
                 openResetPasswordForm(id);
+            });
+            jQuery('#usersBody').on('click', '.btn-review-avatar', function () {
+                var id = jQuery(this).closest('tr').data('id');
+                openAvatarReview(id);
             });
             jQuery('#usersBody').on('click', '.btn-toggle', function () {
                 var $row = jQuery(this).closest('tr');

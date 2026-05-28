@@ -10,6 +10,11 @@ export interface User {
   email: string
   display_name: string
   avatar_url?: string
+  pending_avatar_url?: string
+  avatar_status?: 'none' | 'pending' | 'approved' | 'rejected'
+  avatar_submitted_at?: string
+  avatar_reviewed_at?: string
+  avatar_reject_reason?: string
   subscription: {
     tier: SubscriptionTier
     expiryDate?: string
@@ -17,6 +22,18 @@ export interface User {
   email_verified: boolean
   created_at: string
   last_login?: string
+}
+
+export interface SubscriptionOrder {
+  id: string
+  orderNo: string
+  tier: SubscriptionTier
+  tierLabel: string
+  amountCents: number
+  amountYuan: string
+  durationDays: number
+  status: 'pending' | 'paid' | 'canceled'
+  createdAt: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -38,6 +55,11 @@ export const useAuthStore = defineStore('auth', () => {
       email: raw.email as string,
       display_name: (raw.display_name as string) || (raw.username as string),
       avatar_url: raw.avatar_url as string | undefined,
+      pending_avatar_url: raw.pending_avatar_url as string | undefined,
+      avatar_status: (raw.avatar_status as User['avatar_status']) || 'none',
+      avatar_submitted_at: raw.avatar_submitted_at as string | undefined,
+      avatar_reviewed_at: raw.avatar_reviewed_at as string | undefined,
+      avatar_reject_reason: raw.avatar_reject_reason as string | undefined,
       subscription: {
         tier: (raw.subscription_tier as SubscriptionTier) || 'free',
         expiryDate: raw.subscription_expiry as string | undefined
@@ -119,17 +141,33 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('请先登录后再升级会员')
     }
 
-    const data = await apiClient<{ success: boolean; user: Record<string, unknown> }>(
-      '/auth/subscription',
-      { method: 'PATCH', body: { tier } }
+    const data = await apiClient<{
+      success: boolean
+      order: SubscriptionOrder
+      reused?: boolean
+      message?: string
+    }>(
+      '/subscription/orders',
+      { method: 'POST', body: { tier } }
     )
 
-    if (!data.success || !data.user) {
-      throw new Error('升级失败，服务器返回异常')
+    if (!data.success || !data.order) {
+      throw new Error('订单提交失败，服务器返回异常')
     }
 
-    user.value = toStoreUser(data.user)
+    return data
+  }
+
+  const fetchOrders = async (): Promise<SubscriptionOrder[]> => {
+    const data = await apiClient<{ success: boolean; data: SubscriptionOrder[] }>('/subscription/orders')
+    return data.data || []
+  }
+
+  const replaceUser = (raw: Record<string, unknown>) => {
+    user.value = toStoreUser(raw)
+    isLoggedIn.value = true
     persistUser(user.value)
+    return user.value
   }
 
   const checkLimit = () => {
@@ -173,6 +211,8 @@ export const useAuthStore = defineStore('auth', () => {
     openAuthModal,
     closeAuthModal,
     upgradeSubscription,
+    fetchOrders,
+    replaceUser,
     checkLimit,
     incrementUsage
   }

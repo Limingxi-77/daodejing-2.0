@@ -1,23 +1,33 @@
-node_modules
-.env
-.env.*
-!.env.example
-!**/.env.example
-*.local
-.claude/
-.trae/
-.vercel/
+# IDE
 .vs/
+.vscode/
+.idea/
+.trae/
+
+# Logs
 logs/
-dist/
-dev-dist/
-vue-project/dist/
-vue-project/dev-dist/
-playwright-report
-test-results
-vue-project/playwright-report
-vue-project/test-results
 *.log
-*.err.log
-*.out.log
-vite-*.log
+lh.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Build output
+vue-project/dist/
+
+# Env
+.env
+.env.local
+
+# Deployment
+.vercel/
+test-results/
+
+# Uploads (user-generated content)
+uploads/avatars/pending/
+uploads/tts/
+uploads/art/

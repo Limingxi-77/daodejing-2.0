@@ -55,6 +55,34 @@
               </div>
             </transition>
 
+            <!-- 修行状态 -->
+            <div class="relative z-10 w-full mb-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <i :class="cultivationStore.currentRealm.icon" class="text-lg"></i>
+                  <span class="font-bold">{{ cultivationStore.currentRealm.name }}</span>
+                </div>
+                <div class="text-sm">
+                  <span class="text-yellow-300 font-bold">{{ cultivationStore.exp }}</span>
+                  <span class="text-white/60"> XP</span>
+                </div>
+              </div>
+              <!-- Progress Bar -->
+              <div class="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-gradient-to-r from-yellow-300 to-yellow-500 rounded-full transition-all duration-700"
+                  :style="{ width: cultivationStore.progress + '%' }"
+                ></div>
+              </div>
+              <div class="flex justify-between mt-1 text-xs text-white/50">
+                <span>{{ cultivationStore.currentRealm.name }}</span>
+                <span v-if="cultivationStore.nextRealm">
+                  {{ cultivationStore.nextRealm.name }} ({{ cultivationStore.nextRealm.minExp }} XP)
+                </span>
+                <span v-else>已达最高境界</span>
+              </div>
+            </div>
+
             <h3 class="text-2xl font-bold mb-4 relative z-10">今日道签</h3>
             <p class="text-center mb-6 text-white/80 relative z-10">
               基于《道德经》原文,由 AI 为你生成今日提点与行动建议。<br/>

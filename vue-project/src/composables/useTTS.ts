@@ -16,7 +16,7 @@ export function useTTS(options: UseTTSOptions = {}) {
   // 服务实例
   const cosyvoiceService = new CosyVoiceService({
     API_KEY: '',
-    DEFAULT_VOICE: options.defaultVoice || 'longxiaochun',
+    DEFAULT_VOICE: options.defaultVoice || 'mimo_default',
     DEFAULT_SPEED: options.defaultSpeed || 1.0,
     DEFAULT_EMOTION: options.defaultEmotion || 'neutral'
   })
@@ -35,7 +35,7 @@ export function useTTS(options: UseTTSOptions = {}) {
   const speedOptions = computed(() => cosyvoiceService.getSpeedOptions())
 
   // 当前配置
-  const currentVoice = ref(options.defaultVoice || 'longxiaochun')
+  const currentVoice = ref(options.defaultVoice || 'mimo_default')
   const currentSpeed = ref(options.defaultSpeed || 1.0)
   const currentEmotion = ref(options.defaultEmotion || 'neutral')
 
@@ -257,11 +257,11 @@ export function useTTS(options: UseTTSOptions = {}) {
       // 根据人格选择音色
       let voice = currentVoice.value
       if (persona === 'sage') {
-        voice = 'longxiaocheng' // 沉稳男声
+        voice = '白桦' // 沉稳男声
       } else if (persona === 'healer') {
-        voice = 'longjing' // 知性女声
+        voice = '茉莉' // 清新女声
       } else {
-        voice = 'longxiaochun' // 温柔女声
+        voice = '冰糖' // 温柔女声
       }
       
       await speak(text, { voice })

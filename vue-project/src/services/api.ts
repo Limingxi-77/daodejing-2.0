@@ -40,7 +40,10 @@ export async function apiClient<T = unknown>(path: string, options: ApiOptions =
     body: body ? JSON.stringify(body) : undefined
   })
 
-  const data = await response.json()
+  const contentType = response.headers.get('content-type') || ''
+  const data = contentType.includes('application/json')
+    ? await response.json().catch(() => ({}))
+    : { message: response.ok ? '' : `请求失败 (${response.status})` }
 
   if (!response.ok) {
     const msg = data.message || `请求失败 (${response.status})`

@@ -1,0 +1,6 @@
+{
+  "apiKey": "sk-b7a7d51277f342fda8398811e14f0000",
+  "model": "qwen-image-2.0-pro",
+  "submitUrl": "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+  "taskUrl": ""
+}
