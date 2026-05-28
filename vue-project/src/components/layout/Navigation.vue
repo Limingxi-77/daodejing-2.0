@@ -54,15 +54,6 @@
         <!-- 音效控制 -->
         <SoundControl />
 
-        <!-- 古籍模式开关 -->
-        <button
-          @click="toggleRetroMode"
-          class="w-10 h-10 rounded-full flex items-center justify-center transition-colors text-primary hover:bg-secondary/10"
-          :title="isRetroMode ? '退出古籍模式' : '进入古籍模式'"
-        >
-          <i :class="isRetroMode ? 'fas fa-align-left' : 'fas fa-scroll'"></i>
-        </button>
-
         <!-- 禅模式开关 -->
         <button
           @click="toggleZenMode"
@@ -215,16 +206,6 @@
              </div>
            </div>
 
-           <!-- 古籍模式 -->
-           <button 
-             @click="toggleRetroMode" 
-             class="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50 text-primary transition-colors active:scale-95"
-             :class="{ 'bg-primary/10 border border-primary/20': isRetroMode }"
-           >
-             <i :class="isRetroMode ? 'fas fa-align-left' : 'fas fa-scroll'" class="text-xl mb-1"></i>
-             <span class="text-xs font-medium">{{ isRetroMode ? '普通' : '古籍' }}</span>
-           </button>
-           
            <!-- 禅模式 -->
            <button 
              @click="toggleZenMode" 
@@ -340,7 +321,7 @@ import SoundControl from './SoundControl.vue'
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
 const isZenMode = ref(false)
-const isRetroMode = ref(false)
+
 const isXpPopoverOpen = ref(false)
 const isMobileXpPanelOpen = ref(false)
 const xpPopoverRef = ref<HTMLElement | null>(null)
@@ -534,14 +515,7 @@ const toggleZenMode = () => {
   }
 }
 
-const toggleRetroMode = () => {
-  isRetroMode.value = !isRetroMode.value
-  if (isRetroMode.value) {
-    document.documentElement.classList.add('retro-mode')
-  } else {
-    document.documentElement.classList.remove('retro-mode')
-  }
-}
+
 
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
