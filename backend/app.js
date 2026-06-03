@@ -1982,12 +1982,12 @@ app.get('/api/admin/subscription-orders', adminAuthMiddleware, requirePermission
     }
 
     const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `${subscriptionOrderSelectSql(where)}
        ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
       params.concat([Number(pageSize), Number(offset)])
     )
-    const [countRows] = await pool.execute(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM subscription_orders o
        LEFT JOIN users u ON u.id = o.user_id
@@ -3685,7 +3685,7 @@ app.get('/api/community/posts', authMiddleware, async (req, res) => {
     }
 
     const where = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : ''
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT p.*, u.username, u.display_name,
         (SELECT COUNT(*) FROM community_likes l WHERE l.post_id = p.id) AS like_count,
         (SELECT COUNT(*) FROM community_comments c WHERE c.post_id = p.id AND c.status = 'published') AS comment_count,
@@ -3699,7 +3699,7 @@ app.get('/api/community/posts', authMiddleware, async (req, res) => {
        LIMIT ? OFFSET ?`,
       [req.user.id, req.user.id, ...params, Number(pageSize), Number(offset)]
     )
-    const [countRows] = await pool.execute(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM community_posts p ${where}`,
       params
     )
@@ -3959,7 +3959,7 @@ app.get('/api/notifications', authMiddleware, async (req, res) => {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1)
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '20', 10), 1), 100)
     const offset = (page - 1) * pageSize
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       'SELECT * FROM user_notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
       [req.user.id, Number(pageSize), Number(offset)]
     )
@@ -4055,7 +4055,7 @@ app.get('/api/resources', async (req, res) => {
     }
 
     const where = `WHERE ${whereParts.join(' AND ')}`
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT r.*, c.name AS category_name
        FROM resources r
        LEFT JOIN resource_categories c ON c.id = r.category_id
@@ -4064,7 +4064,7 @@ app.get('/api/resources', async (req, res) => {
        LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
-    const [countRows] = await pool.execute(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM resources r ${where}`,
       params
     )
@@ -4266,7 +4266,7 @@ app.get('/api/admin/learning/progress', adminAuthMiddleware, requirePermission('
     }
 
     const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT
          lp.*,
          u.username,
@@ -4279,7 +4279,7 @@ app.get('/api/admin/learning/progress', adminAuthMiddleware, requirePermission('
        LIMIT ? OFFSET ?`,
       params.concat([Number(pageSize), Number(offset)])
     )
-    const [countRows] = await pool.execute(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM learning_progress lp
        LEFT JOIN users u ON u.id = lp.user_id
@@ -4417,12 +4417,12 @@ app.get('/api/admin/users', adminAuthMiddleware, requirePermission('user:list'),
 
     const where = req.query.keyword ? 'WHERE username LIKE ? OR email LIKE ? OR display_name LIKE ?' : ''
     const params = req.query.keyword ? [keyword, keyword, keyword] : []
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT id, username, email, display_name, avatar_url, pending_avatar_url, avatar_status, avatar_submitted_at, avatar_reviewed_at, avatar_reject_reason, plain_password, subscription_tier, subscription_expiry, email_verified, is_active, created_at, last_login
        FROM users ${where} ${orderBy} LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
-    const [countRows] = await pool.execute(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM users ${where}`,
       params
     )
@@ -4776,7 +4776,7 @@ app.get('/api/admin/audit-logs', adminAuthMiddleware, requirePermission('audit:r
     const page = Math.max(parseInt(req.query.page || '1', 10), 1)
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '20', 10), 1), 100)
     const offset = (page - 1) * pageSize
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       'SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT ? OFFSET ?',
       [Number(pageSize), Number(offset)]
     )
@@ -4798,7 +4798,7 @@ app.get('/api/admin/community/posts', adminAuthMiddleware, requirePermission('co
     const where = status ? 'WHERE p.status = ?' : ''
     if (status) params.push(status)
 
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT p.*, u.username, u.display_name,
         (SELECT COUNT(*) FROM community_likes l WHERE l.post_id = p.id) AS like_count,
         (SELECT COUNT(*) FROM community_comments c WHERE c.post_id = p.id) AS comment_count,
@@ -4810,7 +4810,7 @@ app.get('/api/admin/community/posts', adminAuthMiddleware, requirePermission('co
        LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
-    const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM community_posts p ${where}`, params)
+    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM community_posts p ${where}`, params)
     res.json({ success: true, data: rows.map(formatCommunityPost), pagination: { page, pageSize, total: countRows[0].total } })
   } catch (error) {
     console.error('后台获取社区帖子失败:', error)
@@ -4861,7 +4861,7 @@ app.get('/api/admin/community/reports', adminAuthMiddleware, requirePermission('
     const status = req.query.status ? String(req.query.status) : null
     const where = status ? 'WHERE status = ?' : ''
     const params = status ? [status] : []
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT * FROM community_reports ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
@@ -4961,7 +4961,7 @@ app.get('/api/admin/resources', adminAuthMiddleware, requirePermission('resource
       params.push(req.query.author)
     }
     const where = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : ''
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT r.*, c.name AS category_name
        FROM resources r LEFT JOIN resource_categories c ON c.id = r.category_id
        ${where}
@@ -5099,7 +5099,7 @@ app.get('/api/admin/tts/tasks', adminAuthMiddleware, requirePermission('tts:mana
     const offset = (page - 1) * pageSize
     const where = req.query.status ? 'WHERE status = ?' : ''
     const params = req.query.status ? [req.query.status] : []
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT * FROM tts_tasks ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
@@ -5552,11 +5552,11 @@ app.get('/api/admin/alerts', adminAuthMiddleware, requirePermission('audit:read'
     const where = handled === null ? '' : 'WHERE handled = ?'
     const params = handled === null ? [] : [handled ? 1 : 0]
 
-    const [rows] = await pool.execute(
+    const [rows] = await pool.query(
       `SELECT * FROM alert_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, Number(pageSize), Number(offset)]
     )
-    const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM alert_events ${where}`, params)
+    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM alert_events ${where}`, params)
     res.json({ success: true, data: rows, pagination: { page, pageSize, total: countRows[0].total } })
   } catch (error) {
     console.error('获取告警事件失败:', error)
