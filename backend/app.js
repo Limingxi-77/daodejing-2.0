@@ -1985,7 +1985,7 @@ app.get('/api/admin/subscription-orders', adminAuthMiddleware, requirePermission
     const [rows] = await pool.execute(
       `${subscriptionOrderSelectSql(where)}
        ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
-      params.concat([pageSize, offset])
+      params.concat([Number(pageSize), Number(offset)])
     )
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total
@@ -3697,7 +3697,7 @@ app.get('/api/community/posts', authMiddleware, async (req, res) => {
        ${where}
        ORDER BY p.is_pinned DESC, p.created_at DESC
        LIMIT ? OFFSET ?`,
-      [req.user.id, req.user.id, ...params, pageSize, offset]
+      [req.user.id, req.user.id, ...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total FROM community_posts p ${where}`,
@@ -3961,7 +3961,7 @@ app.get('/api/notifications', authMiddleware, async (req, res) => {
     const offset = (page - 1) * pageSize
     const [rows] = await pool.execute(
       'SELECT * FROM user_notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [req.user.id, pageSize, offset]
+      [req.user.id, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(
       'SELECT COUNT(*) AS total FROM user_notifications WHERE user_id = ?',
@@ -4062,7 +4062,7 @@ app.get('/api/resources', async (req, res) => {
        ${where}
        ORDER BY r.sort_order ASC, r.created_at DESC
        LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total FROM resources r ${where}`,
@@ -4277,7 +4277,7 @@ app.get('/api/admin/learning/progress', adminAuthMiddleware, requirePermission('
        ${where}
        ORDER BY lp.last_accessed DESC, lp.updated_at DESC
        LIMIT ? OFFSET ?`,
-      params.concat([pageSize, offset])
+      params.concat([Number(pageSize), Number(offset)])
     )
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total
@@ -4420,7 +4420,7 @@ app.get('/api/admin/users', adminAuthMiddleware, requirePermission('user:list'),
     const [rows] = await pool.execute(
       `SELECT id, username, email, display_name, avatar_url, pending_avatar_url, avatar_status, avatar_submitted_at, avatar_reviewed_at, avatar_reject_reason, plain_password, subscription_tier, subscription_expiry, email_verified, is_active, created_at, last_login
        FROM users ${where} ${orderBy} LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total FROM users ${where}`,
@@ -4778,7 +4778,7 @@ app.get('/api/admin/audit-logs', adminAuthMiddleware, requirePermission('audit:r
     const offset = (page - 1) * pageSize
     const [rows] = await pool.execute(
       'SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [pageSize, offset]
+      [Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute('SELECT COUNT(*) AS total FROM admin_operation_logs')
     res.json({ success: true, data: rows, pagination: { page, pageSize, total: countRows[0].total } })
@@ -4808,7 +4808,7 @@ app.get('/api/admin/community/posts', adminAuthMiddleware, requirePermission('co
        ${where}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM community_posts p ${where}`, params)
     res.json({ success: true, data: rows.map(formatCommunityPost), pagination: { page, pageSize, total: countRows[0].total } })
@@ -4863,7 +4863,7 @@ app.get('/api/admin/community/reports', adminAuthMiddleware, requirePermission('
     const params = status ? [status] : []
     const [rows] = await pool.execute(
       `SELECT * FROM community_reports ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM community_reports ${where}`, params)
     res.json({ success: true, data: rows, pagination: { page, pageSize, total: countRows[0].total } })
@@ -4966,7 +4966,7 @@ app.get('/api/admin/resources', adminAuthMiddleware, requirePermission('resource
        FROM resources r LEFT JOIN resource_categories c ON c.id = r.category_id
        ${where}
        ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM resources r ${where}`, params)
     res.json({ success: true, data: rows.map(formatResource), pagination: { page, pageSize, total: countRows[0].total } })
@@ -5101,7 +5101,7 @@ app.get('/api/admin/tts/tasks', adminAuthMiddleware, requirePermission('tts:mana
     const params = req.query.status ? [req.query.status] : []
     const [rows] = await pool.execute(
       `SELECT * FROM tts_tasks ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM tts_tasks ${where}`, params)
     res.json({ success: true, data: rows.map(formatTtsTask), pagination: { page, pageSize, total: countRows[0].total } })
@@ -5550,11 +5550,11 @@ app.get('/api/admin/alerts', adminAuthMiddleware, requirePermission('audit:read'
     const offset = (page - 1) * pageSize
     const handled = req.query.handled === undefined ? null : req.query.handled === 'true'
     const where = handled === null ? '' : 'WHERE handled = ?'
-    const params = handled === null ? [] : [handled]
+    const params = handled === null ? [] : [handled ? 1 : 0]
 
     const [rows] = await pool.execute(
       `SELECT * FROM alert_events ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      [...params, Number(pageSize), Number(offset)]
     )
     const [countRows] = await pool.execute(`SELECT COUNT(*) AS total FROM alert_events ${where}`, params)
     res.json({ success: true, data: rows, pagination: { page, pageSize, total: countRows[0].total } })

@@ -1,0 +1,31 @@
+[Unit]
+Description=道德经 AI 平台后端服务
+Documentation=https://github.com/Limingxi-77/daodejing-2.0
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/daodejing/backend
+ExecStart=/usr/bin/node app.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daodejing-backend
+
+# 环境
+Environment=NODE_ENV=production
+
+# 安全限制
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/daodejing/uploads
+
+# 资源限制
+MemoryMax=512M
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
