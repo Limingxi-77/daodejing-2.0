@@ -111,6 +111,35 @@ test('community page supports local compose fallback', async ({ page }) => {
   await expect(posts.first()).toContainText(title)
 })
 
+test('community latest tab keeps seed posts when backend returns empty list', async ({ page }) => {
+  await preparePage(page)
+
+  await page.route('**/api/community/posts', async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], pagination: { page: 1, pageSize: 20, total: 0 } })
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  const postsResponse = page.waitForResponse(response =>
+    response.url().includes('/api/community/posts') &&
+    response.request().method() === 'GET'
+  )
+
+  await openRoute(page, '/community', 'community-page')
+  await postsResponse
+
+  const latestTab = page.getByTestId('community-tab-latest')
+  await expect(latestTab).toHaveClass(/border-primary/)
+  await expect(page.getByTestId('community-post-item').first()).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('community-post-list')).toContainText('对"上善若水"的现代理解')
+})
+
 test('resource library filters local data', async ({ page }) => {
   await preparePage(page)
 

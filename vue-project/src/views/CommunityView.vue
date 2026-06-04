@@ -544,10 +544,16 @@ const mapApiPost = (post: CommunityPost): Post => ({
 
 const loadPostsFromBackend = async () => {
   try {
-    const response = await fetchCommunityPosts(searchQuery.value)
-    allPosts.value = response.data.map(mapApiPost)
-    likes.value = response.data.filter(post => post.liked).map(post => post.id)
-    bookmarks.value = response.data.filter(post => post.bookmarked).map(post => post.id)
+    const keyword = searchQuery.value.trim()
+    const response = await fetchCommunityPosts(keyword)
+    const backendPosts = response.data.map(mapApiPost)
+    if (backendPosts.length > 0 || keyword) {
+      allPosts.value = backendPosts
+    }
+    if (response.data.length > 0) {
+      likes.value = response.data.filter(post => post.liked).map(post => post.id)
+      bookmarks.value = response.data.filter(post => post.bookmarked).map(post => post.id)
+    }
   } catch (error) {
     console.warn('社区后端 API 不可用，继续使用本地示例数据:', error)
   }
